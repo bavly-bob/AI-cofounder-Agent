@@ -1,0 +1,9 @@
+{
+  "idea": "A subscription that sends crypto trading signals telling members which coins to buy and sell each day",
+  "skills": ["technical analysis", "Telegram bots"],
+  "budget_usd": 300,
+  "time_per_week_hours": 15,
+  "target_market": "Retail crypto traders",
+  "values": ["speed"],
+  "notes": "Signals would be sent in a private Telegram channel."
+}

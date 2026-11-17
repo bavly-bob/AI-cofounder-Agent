@@ -1,6 +1,6 @@
 # AI Cofounder
 
-An open-source team of AI agents that takes a founder's idea toward a validated digital product, with founder approval at every gate. This is the M0 skeleton: only the local model connection works so far.
+An open-source team of AI agents that takes a founder's idea toward a validated digital product, with a founder confirm-or-override step at every gate. The core engine works (orchestrator, gates, founder approval, decision log, guardrails); the agents behind each step are still STUBBED.
 
 ## Quickstart
 
@@ -14,18 +14,30 @@ Open http://localhost:8501. The first run downloads the model (~5 GB), so it can
 
 | Step | Status |
 |---|---|
-| Local model connection | Working |
-| Phase 1: Find opportunities | STUBBED (planned) |
-| Phase 2: Design the business | STUBBED (planned) |
+| Local model connection (Ollama) | Working |
+| Founder brief: load from JSON, or parse free text with a safe fallback | Working |
+| Orchestrator: runs steps in order, saves each output, CLI summary | Working |
+| Gates: go / repeat / pivot / stop, with a stop memo on weak or missing evidence | Working |
+| Founder approval before any publish, send, spend or sign (enforced in code, default No) | Working |
+| Decision log: one validated entry per agent action | Working |
+| Guardrails: brief, request and output checks | Working |
+| Step 1.1 Find opportunities (dummy step) | STUBBED |
+| Step 2.1 Validate demand (dummy step; its metric is typed in, not measured) | STUBBED, metric MOCKED |
 | Phase 3: Build the product | STUBBED (planned) |
 | Phase 4: Set the price and policies | STUBBED (planned) |
-| Phase 5: Open the store; deliver automatically (payments and delivery) | MOCKED |
+| Publish (offer page) and send (messages) | MOCKED |
+| Phase 5: Payments and delivery | MOCKED |
 | Phase 6: Operate and learn | STUBBED (planned) |
-| Gates and founder approval | STUBBED (planned) |
+
+Run the engine from the command line (results go to `runs/<run_id>/`):
+
+```bash
+python orchestrator.py --brief examples/briefs/weak_idea.json --metric 12
+```
 
 ## Architecture
 
-TODO: the app is a Streamlit page that calls a local Ollama model through `llm.py`; the full six-phase design will be described in [ARCHITECTURE.md](ARCHITECTURE.md).
+`orchestrator.py` runs each step (`steps.py`) and then its gates (`gates.py`), which recommend go, repeat, pivot or stop against a target fixed before the step runs. Any publish, send, spend or sign action goes through `approval.py` and runs only after the founder says yes. `guardrails.py` checks the brief and every output, and `decision_log.py` records every action. The model is a local Ollama model called through `llm.py`. The full six-phase design will be described in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Models and free resources
 

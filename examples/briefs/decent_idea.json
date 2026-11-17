@@ -1,0 +1,9 @@
+{
+  "idea": "A set of Notion templates that helps freelance translators track client projects, deadlines and invoices they have issued",
+  "skills": ["translation", "Notion", "basic web design"],
+  "budget_usd": 200,
+  "time_per_week_hours": 10,
+  "target_market": "Freelance translators who work with several agencies at once",
+  "values": ["honesty", "no dark patterns", "customer privacy"],
+  "notes": "Three translator friends asked me for my own template. I have a small mailing list from a blog about translation."
+}
