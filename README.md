@@ -65,13 +65,13 @@ All tests are in `tests/` and run offline with `pytest -q` (no Ollama, no networ
 
 ## Models and free resources
 
-- **Model:** the open-weight `qwen3:8b`, run locally with Ollama (the only model runtime; started by `docker compose up`). No API key and no paid service is needed. On a weaker laptop set `OLLAMA_MODEL` (for example `qwen3:4b` or `qwen3:1.7b`) in `.env` or the shell before `docker compose up`.
+- **Model:** the open-weight `qwen3:8b`, run locally with Ollama (the only model runtime; started by `docker compose up`). No API key and no paid service is needed. On a weaker laptop set `OLLAMA_MODEL` (for example `qwen3:4b` or `qwen3:1.7b`) in `.env` or the shell before `docker compose up`. The committed demo run used `qwen3:1.7b`, set through `OLLAMA_MODEL`, because the laptop had too little free memory for `qwen3:8b` ([demo summary](outputs/phase0_step0_demo_summary.md)).
 - **Web research (free, no keys):** web search through the `ddgs` package (bing, yahoo and duckduckgo backends), the Hacker News Algolia API and the Wikipedia API. Reddit's public search is also tried, but it returned HTTP 403 from our network, so it may add nothing. Budget: at most 8 searches and 10 page fetches per run (`config/research.json`).
 - Settings are listed in `.env.example` (placeholders only). Licences: [docs/dependencies.md](docs/dependencies.md).
 
 ## Cost per run
 
-About $0.00 per run (local model). No measured token count yet: the CLI run summary prints the tokens of every run, and the founder-run demo will record them in outputs/phase0_step0_demo_summary.md.
+About $0.00 per run (local `qwen3:1.7b`; measured in the committed demo: about 6,000 tokens and 43-121 s per brief for Phase 1 with `--fast`, 6,011 and 5,881 tokens, wall time including the founder's answers). Figures for `qwen3:8b` or a full research budget have not been measured. Source: [outputs/phase0_step0_demo_summary.md](outputs/phase0_step0_demo_summary.md).
 
 ## Demo video
 

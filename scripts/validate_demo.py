@@ -189,8 +189,16 @@ def check_files(files: list) -> list:
     return problems
 
 
+# A URL quoted inside an HTTP error message ("403 Client Error: Blocked for url: <url>") is a failed
+# provider request, not a cited source, and the error text is often cut short.
+ERROR_URL_RE = re.compile(r"for url:\s*$", re.I)
+
+
 def urls_in(text: str) -> list:
-    return [clean_url(u) for u in URL_RE.findall(text or "")]
+    """Every URL in the text except those quoted in provider error messages."""
+    text = text or ""
+    return [clean_url(m.group(0)) for m in URL_RE.finditer(text)
+            if not ERROR_URL_RE.search(text[max(0, m.start() - 20):m.start()])]
 
 
 def check_urls(files: list, entries: list) -> list:

@@ -58,3 +58,18 @@ def test_secret_scanner_finds_planted_keys_and_ignores_placeholders():
 
 def test_tracked_files_have_no_secrets():
     assert scan.scan(ROOT) == []
+
+
+def test_market_claim_check_ignores_labelled_headings_but_stays_strict():
+    labelled = "## Market size\n\n- unknown — ASSUMPTION: no figure in the sources\n"
+    assert check.unsourced_claims(labelled) == []
+    sourced = "## Market size\n\nAbout 2 million freelancers [source](https://example.com/report)\n"
+    assert check.unsourced_claims(sourced) == []
+    bare_heading = "## Market size\n\n## Next section\n\nSome text.\n"
+    assert check.unsourced_claims(bare_heading) == ["## Market size"]
+    heading_claim = "## Market size: $5 billion\n\nIt is big.\n"
+    assert check.unsourced_claims(heading_claim) == ["## Market size: $5 billion"]
+    unlabelled_line = "## Market\n\nThe market is worth $4 billion and grows 12% a year.\n"
+    assert check.unsourced_claims(unlabelled_line) == ["The market is worth $4 billion and grows 12% a year."]
+    labelled_line = "The market is worth $4 billion (ASSUMPTION).\n"
+    assert check.unsourced_claims(labelled_line) == []

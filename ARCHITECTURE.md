@@ -55,7 +55,7 @@ The steps run in this order: 1.1, 1.2, 1.3, 1.4, Phase 1 gate, 1.5, then (only a
 - **Method (Design the business, the Core step):** 2.1 builds the 9-box Lean Canvas from the Phase 1 findings; an item keeps a source only if Phase 1 used that source, everything else is ASSUMPTION; revenue is a price hypothesis, and projections or income promises are dropped and logged; it lists the 3 riskiest assumptions with a cheap test each. The founder signs the canvas off (a "sign" approval; No redoes the step with the founder's note). 2.2 designs one demand test: hypothesis, free channels, kill criteria and a target (default 100 waitlist sign-ups in 14 days with at least 5% conversion; the agent may only propose a stricter target, up to 1,000). The founder approves the target before any result exists; it is then stored with its SHA-256 hash, and any later change is refused and logged. 2.3 writes one self-contained HTML waitlist page (inline CSS, no scripts, no trackers), checked by `check_landing_page`; its form is MOCKED (no action, disabled button, visible label "MOCKED — demo form"). Publishing goes through `guarded_action("publish")`, and the MOCKED executor only writes a local copy under the run folder. 2.4 counts the evidence in Python: a waitlist CSV (`--waitlist`, only counts kept, duplicates and invalid emails dropped, rows dated outside the test window dropped; an unreadable export is STOP, with no fallback to other numbers), founder-reported numbers (`--signups`, `--visitors`; in the app, the uploaded CSV's row count is passed as founder-reported sign-ups, counted in memory with no de-duplication and no date window, and no email is stored), or MOCKED demo numbers (`--mock-signups`, `--mock-visitors`), labelled MOCKED in every Phase 2 file. With no data the gate says STOP ("demand test not run yet"); the run can be continued later with `--resume <run_id> --from phase2`.
 - **Output:** phase2_step1_lean_canvas.md, phase2_gate_founder_approval_canvas.md, phase2_step2_experiment.md, phase2_gate_founder_approval_target.md, phase2_step3_landing_page.md and phase2_step3_landing_page.html, phase2_gate_founder_approval_publish.md, phase2_step4_demand_results.md, phase2_gate_validate.md.
 - **Gate:** three founder-approval gates (canvas, target, publish) and the Phase 2 demand gate (`Phase2DemandGate`) after step 2.4.
-- **Status:** Working; publishing, the waitlist form and the demo sign-up numbers are MOCKED. The founder-run demo uses MOCKED numbers (12 sign-ups, 400 visitors).
+- **Status:** Working; publishing, the waitlist form and the demo sign-up numbers are MOCKED. Phase 2 is verified by the tests in `tests/test_validate_m3.py`, not by the committed demo: in that demo the decent brief stopped at the Phase 1 gate, so Phase 2 never ran and there is no committed Phase 2 output.
 
 ### Phase 3: Build
 
@@ -80,7 +80,7 @@ The steps run in this order: 1.1, 1.2, 1.3, 1.4, Phase 1 gate, 1.5, then (only a
 - **Agents and modules:** designed: an offer-page drafter (Open the store); built as a MOCKED simulation: `payments.py`, `webhooks.py`, `delivery.py`, `refunds.py`, `reconcile.py`, run by `scripts/payment_test.py`.
 - **Tools:** no payment provider, no sandbox, no SDK: an in-memory simulation in integer cents.
 - **Method (Open the store; deliver automatically, the Core step):** the offer page would be published only via `guarded_action("publish")` (STUBBED). A MOCKED payment event grants access once, a duplicate event is ignored, a founder-approved refund revokes access, and reconciliation matches orders, payments, fees and payouts; see [Sale to cash](#sale-to-cash). The simulation is a standalone script; it is not yet connected to the Phase 1-2 pipeline.
-- **Output:** payment_test_log.md in `outputs/` (first line "MOCKED — no real payments") from the founder-run `python scripts/payment_test.py --demo`.
+- **Output:** [outputs/payment_test_log.md](outputs/payment_test_log.md) (first line "MOCKED — no real payments"), committed from the founder-run `python scripts/payment_test.py --demo`: the duplicate webhook was ignored, the founder approved the refund and access was revoked, and the planted payout mismatch was found.
 - **Gate:** founder approval for publish and for every refund ("spend").
 - **Status:** sale to cash MOCKED; opening the store STUBBED.
 
@@ -133,7 +133,7 @@ stateDiagram-v2
     Halted --> [*]
 ```
 
-The founder-run demo commits two gate decisions: the weak brief's Phase 1 gate as outputs/phase1_gate_discover_weak.md (expected STOP) and the decent brief's Phase 2 gate as outputs/phase2_gate_validate_decent.md (on MOCKED numbers). Detail: [docs/gates.md](docs/gates.md).
+The committed demo run (local `qwen3:1.7b`, `--fast`) has two real gate decisions, both STOP and both confirmed by the founder: the weak brief, [outputs/phase1_gate_discover_weak.md](outputs/phase1_gate_discover_weak.md) (1 sourced signal from 1 domain), and the decent brief, [outputs/phase1_gate_discover_decent.md](outputs/phase1_gate_discover_decent.md) (2 sourced signals; 3 are required). The decent brief was expected to pass Phase 1, but it did not, so the demo has no Phase 2 output; Phase 2 and its gate are verified by `tests/test_validate_m3.py`. Summary: [outputs/phase0_step0_demo_summary.md](outputs/phase0_step0_demo_summary.md). Detail: [docs/gates.md](docs/gates.md).
 
 ## Sale to cash
 
@@ -166,7 +166,7 @@ sequenceDiagram
     Rec-->>Fdr: matched rows and mismatches
 ```
 
-`scripts/payment_test.py` runs the scenario: 3 orders paid, 1 duplicate webhook, 1 refund that needs the founder's answer at the terminal, and 1 payout mismatch planted on purpose (-1.50 USD) that reconciliation must find. With `--demo` it writes outputs/payment_test_log.md, produced by the founder-run demo.
+`scripts/payment_test.py` runs the scenario: 3 orders paid, 1 duplicate webhook, 1 refund that needs the founder's answer at the terminal, and 1 payout mismatch planted on purpose (-1.50 USD) that reconciliation must find. With `--demo` it writes [outputs/payment_test_log.md](outputs/payment_test_log.md); the committed log comes from a founder-run demo in which the founder approved the refund.
 
 What production would need: a real provider in **test mode first**; signed webhooks with signature checks; accounts owned and opened by the founder; credentials handled only by the founder, never stored by this system; persistent idempotency and grant storage. Detail: [docs/sale_to_cash.md](docs/sale_to_cash.md).
 

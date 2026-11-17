@@ -741,5 +741,11 @@ def test_cli_denied_publish_is_logged(tmp_path, monkeypatch, capsys):
 
 
 def test_repo_demo_artifacts_are_untouched():
-    assert json.loads((ROOT / "decision_log.json").read_text(encoding="utf-8")) == []
-    assert [p.name for p in (ROOT / "outputs").iterdir()] == [".gitkeep"]
+    """The tests never write the committed demo artifacts: they match the last commit exactly."""
+    import shutil
+    import subprocess
+    if not shutil.which("git") or not (ROOT / ".git").exists():
+        pytest.skip("git is not available here, so the committed artifacts cannot be compared")
+    done = subprocess.run(["git", "status", "--porcelain", "--", "decision_log.json", "outputs"],
+                          cwd=ROOT, capture_output=True, text=True, timeout=60)
+    assert done.returncode == 0 and done.stdout.strip() == "", done.stdout

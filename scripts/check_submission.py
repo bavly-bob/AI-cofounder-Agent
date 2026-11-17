@@ -274,6 +274,36 @@ def output_files() -> list:
     return sorted(p for p in out.iterdir() if p.is_file()) if out.is_dir() else []
 
 
+_LABEL = re.compile(r"https?://|ASSUMPTION")
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s")
+_SKIP_LINE = re.compile(r"^\s*(?:\|?\s*)?(?:run_id|cost|total cost|tokens|target|actual)\b", re.I)
+
+
+def unsourced_claims(text: str) -> list:
+    """Lines with a market-style number claim and no URL or ASSUMPTION label.
+
+    A plain line counts as labelled when it, or its paragraph, has a URL or ASSUMPTION.
+    A Markdown heading ("## Market size") is a title, not a claim: it is labelled when the
+    heading itself or the next non-empty line under it carries a URL or ASSUMPTION.
+    """
+    found = []
+    for block in re.split(r"\n\s*\n", strip_code(text)):
+        for line in block.splitlines():
+            if not line.strip() or _HEADING.match(line) or line.startswith(">") or _SKIP_LINE.match(line):
+                continue
+            if CLAIM_NUMBER.search(line) and not re.search(r"https?://|ASSUMPTION|MOCKED|STUBBED", line) \
+                    and not _LABEL.search(block):
+                found.append(line.strip()[:70])
+    lines = strip_code(text).splitlines()
+    for i, line in enumerate(lines):
+        if not _HEADING.match(line) or not CLAIM_NUMBER.search(line) or _LABEL.search(line):
+            continue
+        following = next((l for l in lines[i + 1:] if l.strip()), "")
+        if _HEADING.match(following) or not _LABEL.search(following):
+            found.append(line.strip()[:70])
+    return found
+
+
 def check_outputs() -> list:
     files = [p for p in output_files() if p.name != ".gitkeep"]
     pending = ("expected until the demo run is committed: run python scripts/demo_run.py (as founder), "
@@ -298,13 +328,7 @@ def check_outputs() -> list:
         if p.suffix.lower() not in (".md", ".txt", ".html", ".csv") or p.name == "payment_test_log.md":
             continue
         text = p.read_text(encoding="utf-8", errors="replace")
-        for block in re.split(r"\n\s*\n", strip_code(text)):
-            for n, line in enumerate(block.splitlines()):
-                if line.startswith(">") or re.match(r"^\s*(?:\|?\s*)?(?:run_id|cost|total cost|tokens|target|actual)\b", line, re.I):
-                    continue
-                if CLAIM_NUMBER.search(line) and not re.search(r"https?://|ASSUMPTION|MOCKED|STUBBED", line) \
-                        and not re.search(r"https?://|ASSUMPTION", block):
-                    unsourced.append(f"{p.name}: {line.strip()[:70]}")
+        unsourced += [f"{p.name}: {line}" for line in unsourced_claims(text)]
     items.append(Item("Market claims in outputs/ carry a URL or ASSUMPTION", not unsourced,
                       "; ".join(unsourced[:4]) or "every number-claim line is sourced or labelled"))
     mocked_unlabelled = []

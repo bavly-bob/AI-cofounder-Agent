@@ -21,7 +21,7 @@ Key facts: this is a local, in-memory **simulation**. There is no payment provid
 3. A refund of the second order is requested: the terminal asks the founder (default No). Yes: access is revoked. No: nothing is refunded and access stays.
 4. A payout mismatch of -1.50 USD is planted on the third order; reconciliation must report it.
 
-The report's first line is "MOCKED — no real payments". The refund answer is a real founder decision: the script uses only the terminal approver, and no flag answers for the founder. The committed log is produced by the founder-run demo.
+The report's first line is "MOCKED — no real payments". The refund answer is a real founder decision: the script uses only the terminal approver, and no flag answers for the founder. The committed [payment test log](../outputs/payment_test_log.md) comes from a founder-run demo: the duplicate was ignored, the founder approved the refund and access was revoked, and the planted mismatch on the third order was found.
 
 ## Tests
 

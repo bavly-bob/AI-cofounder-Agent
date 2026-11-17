@@ -110,7 +110,8 @@ def search(query: str, k: int = 5, errors: list | None = None, providers=None) -
         try:
             return name, PROVIDERS[name](query, k), None
         except Exception as e:  # no network, blocked, rate limited, bad JSON...
-            return name, [], f"{name}: {type(e).__name__}: {str(e)[:160]}"
+            detail = re.sub(r"\s*for url:\s*\S+", "", str(e))   # no query URLs in notes or logs
+            return name, [], f"{name}: {type(e).__name__}: {detail[:160]}"
 
     with ThreadPoolExecutor(max_workers=len(names) or 1) as pool:
         for name, rows, err in pool.map(one, names):

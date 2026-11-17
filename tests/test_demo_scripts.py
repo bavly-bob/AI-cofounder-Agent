@@ -307,3 +307,16 @@ def test_validate_main_exit_codes(tmp_path, capsys):
     root = committed_root(tmp_path / "ok")
     assert validate_demo.main(["--root", str(root)]) == 0
     assert "PASS" in capsys.readouterr().out
+
+
+def test_urls_quoted_in_provider_errors_are_not_citations(tmp_path):
+    root = committed_root(tmp_path)
+    note = ("Some search providers returned nothing: reddit: HTTPError: 403 Client Error: Blocked for url: "
+            "https://www.reddit.com/search.json?q=font+reviews&limit=8&sort=rele\n")
+    path = root / "outputs" / "phase1_step1_opportunities_weak.md"
+    path.write_text(path.read_text(encoding="utf-8") + "\n" + note, encoding="utf-8")
+    assert validate_demo.validate(root)[0] == []
+    # a real citation of an unlogged URL still fails
+    path.write_text(path.read_text(encoding="utf-8") + "\nSee [a thread](https://www.reddit.com/r/x/1).\n",
+                    encoding="utf-8")
+    assert any("https://www.reddit.com/r/x/1 is not in any log" in p for p in validate_demo.validate(root)[0])
