@@ -26,6 +26,13 @@ _EMAIL = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Z
 _DATE_COLS = ("date", "time", "created", "signed", "joined", "subscribed", "timestamp")
 
 
+_DATE_ONLY = re.compile(r"^\d{4}-\d{2}-\d{2}$|^\d{1,2}[/.]\d{1,2}[/.]\d{4}$|^\d{4}/\d{2}/\d{2}$")
+
+
+def _is_date_only(value) -> bool:
+    return bool(_DATE_ONLY.match(str(value or "").strip()))
+
+
 def _parse_time(value: str):
     value = str(value or "").strip()
     if not value:
@@ -74,10 +81,16 @@ def count_waitlist(path, window_start=None, window_days: int = 14) -> dict:
             continue
         seen.add(email)
         counts["valid"] += 1
-        when = _parse_time(row[date_col]) if date_col is not None and date_col < len(row) else None
+        raw_when = row[date_col] if date_col is not None and date_col < len(row) else ""
+        when = _parse_time(raw_when)
+        if when is not None and window_start and _is_date_only(raw_when):
+            # A date without a time means the whole day: count it if the day is in the window.
+            inside = window_start.date() <= when.date() <= end.date()
+        else:
+            inside = when is None or not window_start or window_start <= when <= end
         if when is None:
             counts["undated"] += 1
-        elif window_start and not (window_start <= when <= end):
+        elif not inside:
             counts["outside_window"] += 1
             continue
         counts["counted"] += 1
@@ -96,9 +109,16 @@ def gather_evidence(ctx, target_record) -> dict:
     if o.get("waitlist_path"):
         try:
             counts = count_waitlist(o["waitlist_path"], approved_at, window)
-        except OSError as e:
-            ctx.logger.log(ROLE, "waitlist_unreadable", error=type(e).__name__)
-            counts = None
+        except (OSError, csv.Error, ValueError) as e:
+            # No silent fallback: the founder asked for this export, so the step says it failed and
+            # uses no other evidence (a STOP at the gate); rerun with a readable file.
+            others = [n for n, v in (("--signups", o.get("signups")), ("--mock-signups", o.get("mock_signups")))
+                      if v is not None]
+            ctx.logger.log(ROLE, "waitlist_unreadable", outcome="stop", error=type(e).__name__,
+                           ignored_evidence=others or None,
+                           reason="the --waitlist export could not be read; no other evidence is used instead")
+            ev.update(type="waitlist_unreadable", waitlist_error=type(e).__name__, ignored_evidence=others)
+            return ev
         if counts is not None:
             ev.update(type="waitlist_csv", signups=counts["counted"], details=counts)
             if o.get("visitors") is not None:
@@ -116,6 +136,13 @@ def gather_evidence(ctx, target_record) -> dict:
 
 def interpret(ev: dict, target: dict | None) -> list:
     """Plain sentences, no spin."""
+    if ev["type"] == "waitlist_unreadable":
+        out = [f"The waitlist export given with --waitlist could not be read ({ev.get('waitlist_error')}), "
+               "so there are no sign-up numbers. Nothing can be concluded about demand."]
+        if ev.get("ignored_evidence"):
+            out.append(f"Other evidence was supplied ({', '.join(ev['ignored_evidence'])}) but was NOT used "
+                       "instead: rerun with a readable export, or without --waitlist.")
+        return out
     if ev["signups"] is None:
         return ["No sign-up data was supplied, so the demand test has not been run yet. Nothing can be "
                 "concluded about demand."]
@@ -159,7 +186,9 @@ class DemandResultsStep:
         ev = gather_evidence(ctx, record)
         label = {"waitlist_csv": "waitlist export (CSV): aggregate counts only, no email kept",
                  "founder_reported": "founder-reported (typed in by the founder; not verified by the system)",
-                 "mocked": MOCKED_EVIDENCE, "none": "none: no data supplied"}[ev["type"]]
+                 "mocked": MOCKED_EVIDENCE, "none": "none: no data supplied",
+                 "waitlist_unreadable": f"none: the --waitlist export could NOT be read ({ev.get('waitlist_error')}); "
+                                        "no other evidence was used instead"}[ev["type"]]
         lines = ["# Phase 2, step 4: demand results", ""]
         if ev["mocked"]:
             lines += [f"**{MOCKED_EVIDENCE}.** The numbers below were typed in with `--mock-signups`. They are not "

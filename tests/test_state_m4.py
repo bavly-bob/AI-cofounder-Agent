@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -33,7 +34,8 @@ def _isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(engine_adapter, "BASE_DIR", tmp_path)
     H.PUBLISHED.clear()
     yield
-    engine_adapter._LIVE.clear()
+    import orchestrator
+    orchestrator._ENGINE.clear()
 
 
 def _entries(state):
@@ -212,12 +214,98 @@ def test_adapter_publish_approved_runs_the_mocked_executor_once():
     assert len(H.PUBLISHED) == 1 and state.status == "finished"
 
 
-def test_adapter_after_restart_shows_pending_and_records_but_does_not_continue():
-    rid, state = _start()
+def test_restart_from_state_json_shows_the_same_pending_item_and_continues():
+    import orchestrator
+    rid, state = _start(metric=12)
     pending = state.pending.to_dict()
-    engine_adapter._LIVE.clear()                                   # the app process restarted
-    reloaded = engine_adapter.step_until_pause(rid)
-    assert reloaded.pending.to_dict() == pending
-    after = engine_adapter.submit_decision(rid, pending["id"], True)
-    assert after.status == "stopped" and "interrupted" in after.message
+    assert load(rid, engine_adapter.runs_dir()).cursor["stage"] == "gate"
+    orchestrator._ENGINE.clear()                                   # the app process restarted
+    reloaded = engine_adapter.step_until_pause(rid, steps=H.test_steps())
+    assert reloaded.pending.to_dict() == pending and reloaded.status == "awaiting_approval"
+    after = engine_adapter.submit_decision(rid, pending["id"], True, steps=H.test_steps())
     assert after.decisions[-1]["approved_by"] == "founder"
+    assert after.pending.recommendation == "stop" and after.status == "awaiting_approval"   # the run moved on
+    final = engine_adapter.submit_decision(rid, after.pending.id, True, steps=H.test_steps())
+    assert final.status == "stopped" and final.final_outcome == "stop"
+    assert [s["id"] for s in final.steps] == ["1.1", "2.1"]                                 # no step ran twice
+    actions = [e["action"] for e in _entries(final)]
+    assert actions.count("start_run") == 1 and actions.count("pause_for_founder") == 2
+    assert "resume_after_founder_decision" in actions
+
+
+def test_cli_path_never_pauses_and_has_no_state_file(tmp_path):
+    import orchestrator
+    from approval import DenyAllApprover
+    summary = orchestrator.run_pipeline(H.brief(), steps=H.test_steps(), approver=DenyAllApprover(),
+                                        base_dir=tmp_path, mock_signups=150, phases=[1, 2])
+    assert summary.status != "awaiting_approval"
+    assert not (summary.output_dir / "state.json").exists()
+    assert H.PUBLISHED == []                                                                # denied by default
+
+
+def test_ui_options_reach_run_pipeline():
+    import orchestrator
+    kw = orchestrator.engine_options({"fast": True, "max_phase": 2, "mock_signups": 12, "mock_visitors": 400,
+                                      "waitlist_rows": None, "signups": None})
+    assert kw == {"fast": True, "phases": [1, 2], "mock_signups": 12, "mock_visitors": 400}
+    kw = orchestrator.engine_options({"max_phase": 1, "waitlist_upload": "uploaded", "visitors": 500})
+    assert kw == {"fast": False, "phases": [1], "visitors": 500}     # the upload goes in as a file, not a count
+    import inspect
+    params = inspect.signature(orchestrator.run_pipeline).parameters
+    assert all(k in params for k in ("fast", "phases", "signups", "visitors", "mock_signups", "mock_visitors"))
+
+
+# --- UI waitlist upload: the CLI's checks, counts only, no silent fallback ------------------
+
+def _approve_all(rid, **engine):
+    state = engine_adapter.step_until_pause(rid, **engine)
+    for _ in range(25):
+        if state.pending is None or state.pending.decided:
+            break
+        state = engine_adapter.submit_decision(rid, state.pending.id, True, **engine)
+    return state
+
+
+def _decent_run(options):
+    import copy
+    from brief import load_brief
+    from llm import FakeLLM
+    from tests.test_validate_m3 import BRIEFS, REPLIES, fetch, search
+    rid = engine_adapter.start_run(load_brief(BRIEFS / "decent_idea.json"), {"fast": True, "max_phase": 2, **options},
+                                   llm_client=FakeLLM(copy.deepcopy(REPLIES)), search_fn=search, fetch_fn=fetch)
+    return rid, _approve_all(rid)
+
+
+def test_upload_counts_with_the_cli_checks():
+    import orchestrator
+    data = ("email" + chr(10) + ("same.person@example.com" + chr(10)) * 100).encode("utf-8")
+    counts = orchestrator.count_waitlist_bytes(data)
+    assert counts["counted"] == 1 and counts["duplicates"] == 99 and counts["rows"] == 100
+
+
+def test_upload_of_one_email_100_times_counts_1_and_no_email_is_kept(tmp_path):
+    import glob
+    import tempfile
+    data = ("email" + chr(10) + ("same.person@example.com" + chr(10)) * 100).encode("utf-8")
+    rid, state = _decent_run({"waitlist_upload": "uploaded", "waitlist_bytes": data, "visitors": 1000,
+                              "signups": 500})                     # typed sign-ups are NOT used instead
+    assert state.status == "stopped" and state.final_outcome == "stop"
+    counted = [e for e in _entries(state) if e["action"] == "count_waitlist"]
+    assert counted and counted[-1]["counted"] == 1 and counted[-1]["duplicates"] == 99
+    validate = [g for g in state.gates if g["gate"] == "validate"]
+    assert validate[-1]["system_outcome"] == "stop" and "1 sign-ups" in validate[-1]["actual"]
+    for path in tmp_path.rglob("*"):
+        if path.is_file():
+            assert "same.person@example.com" not in path.read_text(encoding="utf-8", errors="replace"), path
+    assert "waitlist_bytes" not in json.dumps(state.to_dict())
+    assert not glob.glob(str(Path(tempfile.gettempdir()) / "waitlist_upload_*.csv"))   # temp copy deleted
+
+
+def test_unreadable_upload_stops_with_the_unreadable_reason():
+    rid, state = _decent_run({"waitlist_upload": "unreadable", "signups": 500, "visitors": 1000})
+    assert state.status == "stopped" and state.final_outcome == "stop"
+    validate = [g for g in state.gates if g["gate"] == "validate"]
+    assert validate[-1]["system_outcome"] == "stop"
+    assert validate[-1]["reasons"][0].startswith("The --waitlist export could not be read")
+    entry = [e for e in _entries(state) if e["action"] == "waitlist_unreadable"][-1]
+    assert entry["ignored_evidence"] == ["--signups"]

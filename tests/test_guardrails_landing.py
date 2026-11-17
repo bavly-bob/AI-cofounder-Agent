@@ -116,3 +116,24 @@ def test_categories_are_known_and_bad_input_fails_closed():
 def test_honest_email_wording_is_not_founder_voice():
     html = page("<p>Email me when it's ready.</p><p>We review every message by hand.</p>")
     assert check_landing_page(html).allowed is True
+
+
+# ---------- M3 QA (D-B, D-C): output-side cases from evals/output_cases.json ----------
+import json
+from pathlib import Path
+
+from guardrails import check_output
+
+OUT = json.loads((Path(__file__).resolve().parent.parent / "evals" / "output_cases.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("case", OUT["must_block"], ids=[c["id"] for c in OUT["must_block"]])
+def test_output_side_dishonest_copy_is_blocked(case):
+    for result in (check_output(case["text"]), check_landing_page(page(f"<p>{case['text']}</p>"))):
+        assert (result.allowed, result.category) == (False, case["category"]), case["text"]
+
+
+@pytest.mark.parametrize("case", OUT["must_allow"], ids=[c["id"] for c in OUT["must_allow"]])
+def test_output_side_honest_copy_is_allowed(case):
+    assert check_output(case["text"]).allowed is True, case["text"]
+    assert check_landing_page(page(f"<p>{case['text']}</p>")).allowed is True, case["text"]

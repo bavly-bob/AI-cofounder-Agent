@@ -25,7 +25,16 @@ ALWAYS_ASSUMPTION = {"revenue_streams", "unfair_advantage", "solution", "unique_
 _PROJECTION = re.compile(
     r"\b(?:projected|projection|forecast|expected revenue|will (?:earn|make|generate)|guarantee\w*|"
     r"mrr|arr|run[- ]rate|passive income|profit of|revenue of|\d[\d,.]*\s*(?:k\s*)?(?:customers|users|sales|"
-    r"subscribers|buyers)\b|(?:per|a|each)\s+(?:month|year)\s+in\s+(?:revenue|sales|income))", re.I)
+    r"subscribers|buyers)\b|(?:per|a|each)\s+(?:month|year)\s+in\s+(?:revenue|sales|income))"
+    # income verbs followed by an amount: "Earn up to 2000 per month", "make 500 a week"
+    r"|\b(?:earns?|earning|makes?|making|generates?|generating|bring in|net|gross|income|profits?|revenues?|"
+    r"sales|turnover)\b[^.;]{0,30}?\d"
+    # break-even / payback claims, and time-boxed results: "Break-even in 3 months", "Year 1: ..."
+    r"|\bbreak[- ]?even\b|\bpay(?:s)?[- ]?back\b|\bprofitab\w+|"
+    r"\b(?:year|month|quarter|q)\s*\d+\s*[:=\-]"
+    # an amount followed by revenue words: "50,000 USD revenue", "2k in sales"
+    r"|\d[\d,.]*\s*(?:k|m|thousand|million)?\s*(?:usd|eur|gbp|egp|dollars?|euros?|pounds?|[$\u20ac\u00a3])?"
+    r"\s*(?:in\s+|of\s+)?(?:revenue|sales|income|profit|turnover)\b", re.I)
 
 _ITEM = {"type": "object", "properties": {"text": {"type": "string"}, "source": {"type": "string"}},
          "required": ["text", "source"]}
@@ -51,12 +60,13 @@ FALLBACK_RISKS = [
 
 
 def _clean(ctx, text, where):
-    text = safe_text(ctx, ROLE, text, where)
-    if text and _PROJECTION.search(text):
-        ctx.logger.log(ROLE, "drop_projection", where=where, text=text[:200],
+    """The canvas's own projection filter first (so its drops are logged as such), then the output guardrail."""
+    raw = re.sub(r"\s+", " ", str(text or "")).strip()
+    if raw and _PROJECTION.search(raw):
+        ctx.logger.log(ROLE, "drop_projection", where=where, text=raw[:200],
                        reason="projections, forecasts and income promises are not allowed in the canvas")
         return None
-    return text
+    return safe_text(ctx, ROLE, raw, where)
 
 
 def canvas_approval_payload(result, ctx) -> dict:

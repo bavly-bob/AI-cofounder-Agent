@@ -65,3 +65,33 @@ def test_module_logger_also_scrubs(tmp_path):
         assert EMAIL not in (tmp_path / "log.json").read_text(encoding="utf-8")
     finally:
         decision_log._default = None
+
+
+def test_local_paths_become_repo_relative_or_home():
+    from decision_log import ROOT, scrub_paths
+
+    win_home = "C:" + "\\" + "Users" + "\\" + "someone" + "\\" + "AppData" + "\\" + "Local" + "\\" + "Temp" + "\\" + "x.md"
+    nix_home = "/" + "home/someone/projects/app/run.json"
+    mac_home = "/" + "Users/someone/Desktop/a.txt"
+    inside = str(ROOT / "runs" / "r1" / "published_mock" / "page.html")
+    assert scrub_paths(inside).replace("\\", "/") == "runs/r1/published_mock/page.html"
+    assert scrub_paths(inside.replace("\\", "/")) == "runs/r1/published_mock/page.html"
+    doubled = scrub_paths(inside.replace("\\", "\\\\"))   # as in a JSON-escaped string
+    assert str(ROOT) not in doubled and doubled.startswith("runs")
+    assert scrub_paths(win_home) == "<home>" + "\\" + "AppData" + "\\" + "Local" + "\\" + "Temp" + "\\" + "x.md"
+    assert scrub_paths(nix_home) == "<home>/projects/app/run.json"
+    assert scrub_paths(mac_home) == "<home>/Desktop/a.txt"
+    url = "https://example.com/Users/someone/profile"
+    assert scrub_paths(url) == url
+    assert scrub_paths("phase2_step1_validation.md") == "phase2_step1_validation.md"
+
+
+def test_logger_rewrites_paths_in_gate_evidence(tmp_path):
+    from decision_log import ROOT
+
+    logger = DecisionLogger(tmp_path / "decision_log.json", run_id="r3")
+    path = str(ROOT / "runs" / "r3" / "published_mock" / "landing.html")
+    logger.log("gate", "founder_approval_publish", evidence={"published_to": path, "files": [path]})
+    raw = (tmp_path / "decision_log.json").read_text(encoding="utf-8")
+    assert str(ROOT) not in raw and str(ROOT).replace("\\", "\\\\") not in raw
+    assert "runs" in raw and "landing.html" in raw

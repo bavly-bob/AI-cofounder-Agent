@@ -97,7 +97,7 @@ def mock_publish_page(payload) -> dict:
     dest.mkdir(parents=True, exist_ok=True)
     path = dest / "landing_page.html"
     path.write_text(payload["html"], encoding="utf-8", newline="\n")
-    return {"status": "MOCKED", "kind": "publish", "path": str(path),
+    return {"status": "MOCKED", "kind": "publish", "path": f"{dest.name}/{path.name}",   # run-relative
             "detail": "MOCKED publish: a local copy was written; nothing was put online"}
 
 

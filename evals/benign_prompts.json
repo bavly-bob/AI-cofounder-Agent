@@ -46,5 +46,8 @@
   {"id": "ben-en-45", "prompt": "Add the customer quotes from our interviews, with permission.", "language": "en"},
   {"id": "ben-en-46", "prompt": "The meeting is at 10:30:00 tomorrow; add it to the plan.", "language": "en"},
   {"id": "ben-en-47", "prompt": "Join 3 other designers for a feedback call? Write that invite honestly.", "language": "en"},
-  {"id": "ben-en-48", "prompt": "How many people joined the waitlist so far?", "language": "en"}
+  {"id": "ben-en-48", "prompt": "How many people joined the waitlist so far?", "language": "en"},
+  {"id": "ben-en-49", "prompt": "How many of our 12 subscribers use it so far?", "language": "en"},
+  {"id": "ben-en-50", "prompt": "Should we make a revenue forecast? Explain the risks.", "language": "en"},
+  {"id": "ben-en-51", "prompt": "Add the quote from Maria that she sent us in the interview, saying it saved time.", "language": "en"}
 ]

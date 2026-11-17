@@ -430,3 +430,68 @@ def test_empty_free_text_brief_stops_without_a_model_call(tmp_path, monkeypatch,
     code = orchestrator.main(["--brief", str(FIX / "briefs_edge" / "empty.txt")])
     out = capsys.readouterr().out
     assert code == 0 and "Final outcome : STOP" in out and "Please describe the idea" in out
+
+
+# --- M3 QA fix round (D-C, D-D, D-E, D-F) -----------------------------------------------------
+
+@pytest.mark.parametrize("text", ["Earn up to 2000 per month", "Break-even in 3 months",
+                                  "Year 1: 50,000 USD revenue", "2k in sales after launch",
+                                  "Profitable within a quarter"])
+def test_canvas_drops_projections_without_currency_symbols(text):
+    from agents.strategist import _PROJECTION
+    assert _PROJECTION.search(text), text
+
+
+@pytest.mark.parametrize("text", ["A one-time price of about 19 USD, to be tested",
+                                  "A subscription of 5 USD per month, to be tested",
+                                  "Post in 3 networking groups", "Waitlist sign-ups and conversion"])
+def test_canvas_keeps_honest_price_hypotheses_and_plain_items(text):
+    from agents.strategist import _PROJECTION
+    assert not _PROJECTION.search(text), text
+
+
+def test_projection_in_a_canvas_box_is_dropped_and_logged(tmp_path):
+    replies = copy.deepcopy(REPLIES)
+    replies["strategist.canvas"]["revenue_streams"] = [{"text": "Earn up to 2000 per month", "source": ""},
+                                                       {"text": "One-time template price", "source": ""}]
+    replies["strategist.canvas"]["key_metrics"].append({"text": "Break-even in 3 months", "source": ""})
+    summary, _ = run(tmp_path, replies, phases=[1, 2])
+    text = read(summary, "phase2_step1_lean_canvas.md")
+    assert "2000" not in text and "Break-even" not in text and "One-time template price (ASSUMPTION)" in text
+    assert "Price hypothesis (ASSUMPTION" in text
+    assert len([e for e in log_of(summary) if e["action"] == "drop_projection"]) >= 2
+
+
+def test_unreadable_waitlist_is_reported_and_other_evidence_is_not_used(tmp_path):
+    missing = tmp_path / "does_not_exist.csv"
+    summary, _ = run(tmp_path / "r", phases=[1, 2], waitlist_path=missing, signups=500, visitors=1000)
+    text = read(summary, "phase2_step4_demand_results.md")
+    assert "could NOT be read (FileNotFoundError)" in text and "no other evidence was used instead" in text
+    assert "(--signups) but was NOT used" in text and "- Sign-ups: no data" in text
+    assert summary.final_outcome == "stop" and [g["system_outcome"] for g in validate_rows(summary)] == ["stop"]
+    entry = next(e for e in log_of(summary) if e["action"] == "waitlist_unreadable")
+    assert entry["ignored_evidence"] == ["--signups"] and str(tmp_path) not in json.dumps(entry)
+
+
+def test_date_only_rows_on_the_approval_day_are_counted(tmp_path):
+    from datetime import datetime, timezone
+    from agents.analyst import count_waitlist
+    csv_path = tmp_path / "w.csv"
+    csv_path.write_text("email,date\n"
+                        "a@example.com,2026-11-17\n"            # approval day (date only): counted
+                        "b@example.com,17/11/2026\n"            # same day, other format: counted
+                        "c@example.com,2026-12-01\n"            # last day of the 14-day window: counted
+                        "d@example.com,2026-11-16\n"            # the day before: outside
+                        "e@example.com,2026-12-02\n"            # after the window: outside
+                        "f@example.com,2026-11-17T08:00:00Z\n", # a time before approval: outside
+                        encoding="utf-8")
+    approved = datetime(2026, 11, 17, 12, 39, tzinfo=timezone.utc)
+    counts = count_waitlist(csv_path, approved, window_days=14)
+    assert counts["counted"] == 3 and counts["outside_window"] == 3
+
+
+def test_published_copy_path_is_logged_relative_to_the_run(tmp_path):
+    summary, _ = run(tmp_path, phases=[1, 2], mock_signups=130, mock_visitors=1500)
+    gate = next(e for e in log_of(summary) if e["action"] == "founder_approval_publish")
+    assert gate["evidence"]["result"]["path"] == "published_mock/landing_page.html"
+    assert str(tmp_path) not in json.dumps(gate)

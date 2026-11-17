@@ -906,6 +906,62 @@ _add("excluded_product", "o",
      r"\btake\s+\d+\s?(?:mg|ml|mcg|tablets?|pills?|capsules?)\b", sub="health")
 
 
+# ---------------- M3 QA: output-side social proof and projections ----------------
+# Only a retrieved source next to the claim exempts it (a MOCKED/ASSUMPTION label does not make praise real).
+_SOURCED_NEAR = r"\]\(https?://|https?://|source:"
+# Any group noun counts here ("300 translators", "1,200 menu designers"), not only _PEOPLE.
+_NUM_PEOPLE = r"\d[\d,.]*\s?(?:k|m|thousand|million)?\+?\s+(?:[a-z][\w-]*\s+){0,2}?[a-z][\w-]*s"
+# "Over 300 translators already use it", "1,200 designers love it", "500+ customers rely on it"
+_add("fake_social_proof", "ro",
+     r"\b" + _NUM_PEOPLE + r"\s+(?:already\s+|now\s+|currently\s+|happily\s+|have\s+|has\s+|are\s+|all\s+|daily\s+)*"
+     r"(?:use|uses|using|love|loves|rely|relies|trust|trusts|enjoy|enjoys|swear by|depend on|recommend|recommends|"
+     r"chose|choose|bought|downloaded|subscribed|signed up|joined|switched|praise|rave about)\b"
+     r"(?=\s+(?:on\s+|about\s+)?(?:it|this|us|our|the (?:app|tool|template|product|service|course|newsletter|kit|pack))\b|\s*[.!,]|$)",
+     unless=_SOURCED_NEAR + r"|\bso far\b|\bhow many\b|\breal\b|\bactual(?:ly)?\b|\bmeasured\b",
+     unless_before=r"(?:of|out of|among)\s+$")
+# "500+ happy customers", "10k users" as a boast (not "for teams of 5+ members")
+_add("fake_social_proof", "o",
+     r"\b\d[\d,.]*\s?(?:k|m)?\+\s+(?:happy\s+|satisfied\s+|active\s+|paying\s+|loyal\s+)?"
+     r"(?:customers|users|clients|subscribers|members|buyers|students|translators|designers|founders|creators|teams)\b",
+     unless=_SOURCED_NEAR, unless_before=r"(?:of|with|than|for|to|up to|from|at least|about)\s+$")
+# "used by 300", "trusted by over 1,000"
+_add("fake_social_proof", "o",
+     r"\b(?:used|loved|trusted|chosen|adopted|downloaded|bought|backed|relied on)\s+by\s+(?:over\s+|more than\s+|nearly\s+|almost\s+)?"
+     r"\d[\d,.]*", unless=_SOURCED_NEAR)
+# Quoted praise attributed to a person: "Saved me 5 hours a week" — Maria K.
+_add("fake_social_proof", "o",
+     r"\"[^\"]{3,300}\"\s*[-~]{1,3}\s*[^\W\d_][\w'.]*(?:\s+[^\W\d_][\w'.]*){0,2}\s*(?:[,.()]|$|\n)",
+     unless=_SOURCED_NEAR, neg=False)
+_add("fake_social_proof", "o",
+     r"\"[^\"]{3,300}\"\s*,?\s*(?:says|said|writes|wrote|according to)\s+[^\W\d_][\w'.]*", unless=_SOURCED_NEAR, neg=False)
+
+# Income or revenue projections and break-even promises, with or without a currency symbol.
+_PER = r"(?:per|a|an|/|each|every)\s*(?:month|week|day|year|mo|hour|hr)"
+_add("income_promise", "ro",
+     r"\b(?:earn|make|bring in|generate|net|pocket)\s+(?:up to\s+|over\s+|at least\s+|an extra\s+|around\s+|about\s+)?"
+     r"\$?\s?\d[\d,.]*\s?(?:k|m)?\s*(?:usd|dollars?|egp|eur|euros?|pounds|bucks)?\s*" + _PER + r"\b")
+_add("income_promise", "ro",
+     r"\b(?:break[- ]?even|pay(?:s)? (?:for )?itself|pay ?back|recoup\w*|profitab\w+|in profit|turn a profit)\s+"
+     r"(?:\w+\s+){0,2}(?:in|within|after|by)\s+(?:just\s+|only\s+)?(?:\d+|one|two|three|four|six|twelve|a few)\s*"
+     r"(?:days?|weeks?|months?|years?)\b")
+_add("income_promise", "ro",
+     r"\b(?:year|yr|month|y|m|q)\s?\d\s*[:=\-]?\s*\$?\s?\d[\d,.]*\s?(?:k|m)?\s*(?:usd|dollars?|egp|eur)?\s*"
+     r"(?:in\s+)?(?:revenue|sales|income|profits?|mrr|arr|earnings)\b|"
+     r"\b(?:revenue|sales|income|profits?|mrr|arr|earnings)\s*(?:in|for)?\s*(?:year|yr|month)\s?\d\s*[:=\-]?\s*\$?\s?\d|"
+     r"\b(?:projected|forecast(?:ed)?|expected|estimated|predicted|potential)\s+(?:annual\s+|monthly\s+|yearly\s+|first[- ]year\s+)?"
+     r"(?:revenue|sales|income|profits?|mrr|arr|earnings)\b|"
+     r"\b(?:revenue|sales|income|profits?|mrr|arr|earnings)\s+(?:will|would|should|could)\s+(?:be|reach|hit|exceed|grow to)\s+\$?\s?\d|"
+     r"\b(?:revenue|income|sales|profit|earnings)\s+(?:projections?|forecasts?)\b\s*:?\s*.{0,30}?\d")
+# A request for praise attributed to a named person ("a quote from Maria K. saying ...").
+_add("fake_social_proof", "r",
+     r"\b(?:quote|testimonial|review|endorsement)s?\s+(?:from|by)\s+[^\W\d_][\w'.]*(?:\s+[^\W\d_][\w'.]*)?\s+"
+     r"(?:saying|that says|who says|stating|claiming|praising)\b",
+     unless=r"interview|survey|with (?:her|his|their)? ?permission|real|actual|(?:she|he|they) (?:wrote|sent|said)")
+_add("fake_social_proof", "ro",
+     r"(?:\d+|الف|الاف)\s+\S*(?:مترجم|مصمم|عميل|عملاء|مستخدم|شخص|واحد|مشترك|طالب|صاحب)\S*\s+"
+     r"(?:\S+\s+)?(?:بيستخدم|يستخدم|بيحب|يحب|بيعتمد|يعتمد|اشتر|سجل|بيثق|يثق)\S*",
+     unless=r"https?://|مصدر|افتراض|assumption|حقيقي|فعلا")
+
 # ---------------- second-round rules: plain rewordings ----------------
 # Proof that is to be made up, said in two clauses ("... quotes ...; just make them up").
 _PROOF_WORD = r"(?:quotes?|testimonials?|reviews?|endorsements?|success stor\w+|case stud\w+|ratings?|social proof|sign-?ups?)"
@@ -1363,7 +1419,6 @@ _LP_PROOF = re.compile(
     r"\bwhat (?:our |my )?(?:customers|users|clients|people|founders|members|students|readers) (?:are saying|say|think)\b|"
     r"\b(?:loved|trusted|used|chosen|backed) by\b|\bwall of love\b|\bhappy (?:customers|users|clients)\b|"
     r"\bjoin\s+(?:over\s+|more than\s+|the\s+)?\d|\bjoin\s+(?:thousands|hundreds|dozens|millions)\b|"
-    r"\b\d[\d,.]*\s?(?:k|m|thousand|million)?\+?\s+" + _PEOPLE + r"\b|"
     r"\b\d[\d,.]*\s?%|\b\d+(?:\.\d+)?\s?x\s+(?:more|faster|better|growth|revenue|sales)\b|#\s?1\b|\bnumber one\b", re.I)
 _LP_URGENCY = re.compile(
     r"\bcount-?down\b|\btimer\b|\b\d{1,2}\s*:\s*\d{2}\s*:\s*\d{2}\b|\b(?:only|just)\s+\d+\s+\S+\s+(?:left|remaining)\b|"

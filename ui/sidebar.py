@@ -1,9 +1,6 @@
 """Sidebar: model status, run options, Phase 2 evidence, New run / Resume run."""
 from __future__ import annotations
 
-import csv
-import io
-
 import streamlit as st
 
 from ui import engine_adapter, ollama_status
@@ -21,12 +18,11 @@ def model_status() -> dict:
         return ollama_status.check()
 
 
-def _count_csv_rows(upload) -> int | None:
-    """Count non-empty data rows. The file is read in memory only; nothing in it is stored."""
+def _waitlist_counts(upload) -> dict | None:
+    """Aggregate counts with the CLI's checks (valid emails, duplicates). Read in memory; nothing is stored."""
     try:
-        text = upload.getvalue().decode("utf-8-sig", errors="replace")
-        rows = [r for r in csv.reader(io.StringIO(text)) if any(cell.strip() for cell in r)]
-        return max(len(rows) - 1, 0)  # minus the header row
+        import orchestrator
+        return orchestrator.count_waitlist_bytes(upload.getvalue())
     except Exception:
         return None
 
@@ -46,9 +42,15 @@ def render() -> dict:
     sb.header("Phase 2 evidence")
     upload = sb.file_uploader("Waitlist export (CSV)", type=["csv"], key="opt_csv",
                               help="Only the row count is used. Emails are never stored or shown.")
-    rows = _count_csv_rows(upload) if upload is not None else None
+    counts = _waitlist_counts(upload) if upload is not None else None
     if upload is not None:
-        sb.caption(f"{rows} rows counted (counts only)." if rows is not None else "The CSV could not be read.")
+        if counts is not None:
+            sb.caption(f"{counts['valid']} unique valid emails in {counts['rows']} rows "
+                       f"({counts['duplicates']} duplicates, {counts['invalid_emails']} invalid). Counts only; "
+                       "the run counts sign-ups inside the test window.")
+        else:
+            sb.error("The CSV could not be read. The run will STOP at the Phase 2 gate for this reason; "
+                     "the typed sign-ups are NOT used instead.")
     sb.markdown("Founder-reported numbers")
     signups = sb.number_input("Sign-ups (founder-reported)", min_value=0, value=0, step=1, key="opt_signups")
     visitors = sb.number_input("Visitors (founder-reported)", min_value=0, value=0, step=1, key="opt_visitors")
@@ -75,7 +77,9 @@ def render() -> dict:
     return {
         "fast": bool(fast),
         "max_phase": int(max_phase),
-        "waitlist_rows": rows,
+        "waitlist_upload": None if upload is None else ("uploaded" if counts is not None else "unreadable"),
+        "waitlist_bytes": upload.getvalue() if upload is not None and counts is not None else None,
+        "waitlist_counts": counts,
         "signups": int(signups) or None,
         "visitors": int(visitors) or None,
         "mock_signups": int(mock_signups) if use_mock else None,

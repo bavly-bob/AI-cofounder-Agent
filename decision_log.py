@@ -89,10 +89,33 @@ def _luhn_ok(digits: str) -> bool:
     return total % 10 == 0
 
 
-def scrub_text(text: str) -> str:
-    """Replace emails, phone numbers, keys/tokens and card numbers with placeholders."""
+def _root_pattern() -> re.Pattern:
+    """The repository folder, written with either slash (and doubled backslashes from JSON/repr)."""
+    parts = [re.escape(p) for p in re.split(r"[\\/]+", str(ROOT)) if p]
+    prefix = "/" if str(ROOT).startswith("/") else ""
+    return re.compile(prefix + r"(?:\\{1,2}|/)+".join(parts) + r"(?:\\{1,2}|/)*", re.I)
+
+
+_ROOT_PATH = _root_pattern()
+# Any other user-home folder: C:\Users\<name>, /home/<name>, /Users/<name> (not inside a URL).
+_HOME_PATH = re.compile(r"(?<![\w])[A-Za-z]:(?:\\{1,2}|/)+(?:Users|Documents and Settings)(?:\\{1,2}|/)+[^\\/\s\"'<>:|*?]+|"
+                        r"(?<![\w.:/\-])/(?:home|Users)/[^/\s\"'<>]+", re.I)
+
+
+def scrub_paths(text: str) -> str:
+    """Paths under the repository become repo-relative; any other home folder becomes <home>."""
     if not isinstance(text, str) or not text:
         return text
+    text = _ROOT_PATH.sub("", text)
+    return _HOME_PATH.sub("<home>", text)
+
+
+def scrub_text(text: str) -> str:
+    """Replace emails, phone numbers, keys/tokens and card numbers with placeholders, and
+    rewrite local paths (repo-relative, or <home> for anything else under a user folder)."""
+    if not isinstance(text, str) or not text:
+        return text
+    text = scrub_paths(text)
     for label, rx in _SCRUB_RULES:
         if label is None:
             text = rx.sub(lambda m: m.group(1) + "[REDACTED_SECRET]", text)

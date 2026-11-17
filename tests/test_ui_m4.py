@@ -23,7 +23,8 @@ def offline(tmp_path, monkeypatch):
     st.cache_data.clear()
     H.PUBLISHED.clear()
     yield
-    engine_adapter._LIVE.clear()
+    import orchestrator
+    orchestrator._ENGINE.clear()
 
 
 def _app() -> AppTest:
@@ -103,3 +104,36 @@ def test_override_without_note_is_refused_in_the_ui():
     at.button(key=f"override_{pending.id}").click().run()
     assert any("needs a note" in w.value for w in at.warning)
     assert engine_adapter.get_state(rid).pending.status == "pending"     # nothing recorded
+
+
+def test_decent_brief_with_fake_llm_phase1_approve_then_mocked_12_of_400_stop_in_the_ui():
+    """The real agents (FakeLLM, canned web): the founder clicks Approve on every question in the UI."""
+    import copy
+    from brief import load_brief
+    from llm import FakeLLM
+    from tests.test_validate_m3 import BRIEFS, REPLIES, fetch, search
+    rid = engine_adapter.start_run(load_brief(BRIEFS / "decent_idea.json"),
+                                   {"fast": True, "max_phase": 2, "mock_signups": 12, "mock_visitors": 400},
+                                   llm_client=FakeLLM(copy.deepcopy(REPLIES)), search_fn=search, fetch_fn=fetch)
+    engine_adapter.step_until_pause(rid)
+    at = _app()
+    at.session_state["run_id"] = rid
+    at.run()
+    clicked = []
+    for _ in range(25):
+        state = engine_adapter.get_state(rid)
+        if state.pending is None or state.pending.decided:
+            break
+        clicked.append(state.pending.kind)
+        at.button(key=f"approve_{state.pending.id}").click().run()
+        assert not at.exception
+    state = engine_adapter.get_state(rid)
+    assert state.status == "stopped" and state.final_outcome == "stop", (state.status, state.message)
+    assert "gate" in clicked and "publish" in clicked
+    discover = [g for g in state.gates if g["gate"] == "discover"]
+    assert discover and discover[-1]["outcome"] == "go" and discover[-1]["approved_by"] == "founder"
+    validate = [g for g in state.gates if g["gate"] == "validate"]
+    assert validate and validate[-1]["outcome"] == "stop" and validate[-1]["basis"] == "MOCKED"
+    at.run()
+    page = " ".join(m.value for m in at.markdown)
+    assert "Final outcome" in page and "STOP" in page and "MOCKED" in page

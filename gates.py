@@ -14,7 +14,7 @@ import math
 from dataclasses import dataclass, field
 from enum import Enum
 
-from approval import FOUNDER, GATE_OUTCOMES, guarded_action
+from approval import AWAITING, FOUNDER, GATE_OUTCOMES, ApprovalPending, guarded_action
 from steps import header_line
 
 
@@ -295,6 +295,8 @@ class FounderApprovalGate(Gate):
             payload = {"phase": getattr(result, "phase", None), "step": getattr(result, "step", None),
                        "name": getattr(result, "name", None), "status": getattr(result, "status", None)}
         action = guarded_action(self.kind, self.summary, payload, self.executor, ctx)
+        if action.decision == AWAITING:   # browser path: the founder has not answered yet; pause the run
+            raise ApprovalPending(f"{self.kind} action waiting for the founder: {self.summary}")
         evidence = {"kind": self.kind, "approved": action.approved, "executed": action.executed,
                     "decision": action.decision, "result": action.result, "note": action.note}
         target = self.describe_target()["target_text"]
@@ -353,7 +355,9 @@ def founder_review(decision: GateDecision, ctx, phase: int, step: int) -> FinalD
         by_founder = getattr(review, "approver", None) == FOUNDER and chosen in GATE_OUTCOMES
         note = getattr(review, "note", "") or ""
     except Exception as e:  # a broken approver never changes an outcome
-        by_founder, chosen, note = False, None, f"approver failed: {e}"
+        review, by_founder, chosen, note = None, False, None, f"approver failed: {e}"
+    if getattr(review, "awaiting", False) is True:   # browser path: pause; the founder decides later
+        raise ApprovalPending(f"gate '{decision.gate}' after step {phase}.{step} waiting for the founder")
     common = dict(gate=decision.gate, phase=phase, step=step, system_outcome=system.value)
     if not by_founder:
         ctx.logger.log("gate", "founder_review_none", outcome=system.value, founder_outcome=None,
@@ -602,6 +606,16 @@ MOCKED_EVIDENCE = "MOCKED evidence — demonstration only"
 NOT_RUN_YET = "demand test not run yet"
 
 
+def _logged_target(ctx):
+    """The last target the founder approved, as written in the run's decision log, or None."""
+    try:
+        entries = ctx.logger.entries()
+    except Exception:
+        return None
+    found = [e for e in entries if isinstance(e, dict) and e.get("action") == "register_experiment_target"]
+    return found[-1] if found else None
+
+
 class Phase2DemandGate(Gate):
     """After step 2.4. Judges the demand-test evidence against the target the founder approved
     (and hashed) in step 2.2, before any result existed.
@@ -662,6 +676,19 @@ class Phase2DemandGate(Gate):
                                          "after approval. The result cannot be judged."], target_text,
                           "not judged (target changed)", ["A new experiment (REPEAT of step 2.2) with a newly "
                                                           "approved target."])
+        logged = _logged_target(ctx)
+        if logged is not None and (logged.get("sha256") != reg.get("sha256") or logged.get("target") != target):
+            return decide(Outcome.STOP, ["The stored target does not match the target the founder approved, as "
+                                         "recorded in the run's decision log (register_experiment_target). "
+                                         "The result cannot be judged."], target_text,
+                          "not judged (target differs from the logged one)",
+                          ["A new experiment (REPEAT of step 2.2) with a newly approved target."])
+        if ev.get("type") == "waitlist_unreadable":
+            return decide(Outcome.STOP, [f"The --waitlist export could not be read ({ev.get('waitlist_error')}); "
+                                         "no other evidence was used.",
+                                         f"{NOT_RUN_YET} — {rerun}.",
+                                         "No usable sign-up data was supplied, and missing evidence is never GO."],
+                          target_text, "no evidence (waitlist export unreadable)", [f"Real waitlist numbers: {rerun}."])
         if ev.get("type") in (None, "none") or ev.get("signups") is None:
             return decide(Outcome.STOP, [f"{NOT_RUN_YET} — {rerun}.",
                                          "No sign-up data was supplied, and missing evidence is never GO."],
@@ -677,8 +704,10 @@ class Phase2DemandGate(Gate):
                   f"{visitors if visitors is not None else 'unknown'}; conversion {conv_text}; "
                   f"day {ev.get('days_elapsed', '?')} of {target['window_days']}; evidence: {label}")
         conv_ok = conv is not None and conv >= target["min_conversion"]
-        repeats_done = max(0, sum(1 for r in ctx.results if (r.phase, r.step) == (2, 4))
-                           - int(ctx.options.get("phase2_runs_before_resume", 0)) - 1)
+        # REPEATs already used: counted in this process, and persisted across --resume by the
+        # orchestrator (``phase2_repeats_used``), so a resume never grants a fresh REPEAT.
+        repeats_done = max(0, sum(1 for r in ctx.results if (r.phase, r.step) == (2, 4)) - 1,
+                           int(ctx.options.get("phase2_repeats_used") or 0))
         evidence["repeats_done"] = repeats_done
         change_go = [f"At least {target['signups']} sign-ups with conversion >= {target['min_conversion']:.0%} "
                      f"within {target['window_days']} days, from real (not MOCKED) waitlist data."]

@@ -35,6 +35,11 @@ class ApprovalRequired(RuntimeError):
     """A founder-gated function was called outside ``guarded_action``."""
 
 
+class ApprovalPending(Exception):
+    """A question is waiting for the founder (browser path). Raised by gates so the orchestrator
+    can save the run and pause. It is never an approval: nothing ran."""
+
+
 @dataclass(frozen=True)
 class ApprovalResult:
     approved: bool
