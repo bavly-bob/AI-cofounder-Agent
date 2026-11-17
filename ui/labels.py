@@ -2,7 +2,7 @@
 
 MOCKED_BANNER = (
     "**MOCKED / STUBBED in this app:** "
-    "Phases 3-6 are STUBBED (see ARCHITECTURE.md). "
+    "Phases 3, 4 and 6 are STUBBED; Phase 5 sale-to-cash is a MOCKED simulation (see ARCHITECTURE.md). "
     "Publish, send, spend and sign executors are MOCKED: nothing leaves this machine. "
     "Payments, delivery, refunds and reconciliation are MOCKED (no real money). "
     "Mock evidence numbers are MOCKED — demo only, not a real validation. "

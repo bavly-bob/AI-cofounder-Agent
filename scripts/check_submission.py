@@ -243,7 +243,7 @@ def check_log() -> list:
         return [Item("decision_log.json is a list", False, type(data).__name__)]
     if not data:
         return [Item("decision_log.json has the demo run's entries", False, "the list is empty",
-                     pending="expected until the M4 demo run is committed")]
+                     pending="expected until the demo run is committed: run python scripts/demo_run.py (as founder), then python scripts/payment_test.py --demo")]
     problems = []
     for i, e in enumerate(data):
         if not isinstance(e, dict):
@@ -276,7 +276,8 @@ def output_files() -> list:
 
 def check_outputs() -> list:
     files = [p for p in output_files() if p.name != ".gitkeep"]
-    pending = "expected until the M4 demo run (python orchestrator.py --demo) is committed"
+    pending = ("expected until the demo run is committed: run python scripts/demo_run.py (as founder), "
+               "then python scripts/payment_test.py --demo")
     if not files:
         return [Item("outputs/ has the demo run's files", False, "outputs/ is empty", pending=pending)]
     items = []
@@ -321,7 +322,7 @@ def check_payment_log() -> Item:
     text = read("outputs/payment_test_log.md")
     if text is None:
         return Item("outputs/payment_test_log.md exists and starts with MOCKED", False, "missing",
-                    pending="expected until the CEO runs python scripts/payment_test.py (M6 Package A)")
+                    pending="expected until the CEO runs python scripts/payment_test.py --demo (after scripts/demo_run.py)")
     first = text.lstrip().splitlines()[0] if text.strip() else ""
     return Item("outputs/payment_test_log.md exists and starts with MOCKED", first.lstrip("# ").startswith("MOCKED"),
                 f"first line: {first[:60]}")

@@ -517,9 +517,10 @@ def run_pipeline(brief: FounderBrief, steps=None, gates=None, approver=None, dem
                         echo(f"  [{step.phase}.{step.step} {step.name}] FAILED after {seconds}s: the local model "
                              "could not be used (details in the decision log)")
                         return halt(step.phase, where, Outcome.STOP,
-                                    ["The local model could not be used, so this step could not run. Check that "
-                                     "Ollama is running and the model is pulled (see the README); the technical "
-                                     "details are in the decision log.",
+                                    ["The local model could not be used, so this step could not run. " + (
+                                        "The model is not pulled (Ollama answered 404): run `ollama pull <model>`"
+                                        if "404" in str(e) else "Check that Ollama is running and the model is "
+                                        "pulled") + " (see the README); the technical details are in the decision log.",
                                      "Nothing was decided without evidence."],
                                     ["A run with Ollama running and the model pulled (see the README)."])
                     echo(f"  [{step.phase}.{step.step} {step.name}] FAILED after {seconds}s: {e}")

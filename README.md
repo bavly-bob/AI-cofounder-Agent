@@ -16,7 +16,7 @@ The first start downloads the model (`qwen3:8b`, about 5 GB), which can take a w
 2. Choose "Run up to phase" 1 or 2 in the sidebar (optionally founder-reported or MOCKED sign-up numbers for Phase 2), then press **Start run**.
 3. At each gate card, **Approve** the recommendation, **Reject** (halts the run) or **Override** with a written reason. Nothing is published, sent, spent or signed without your click. Results are in the Outputs and Decision log tabs.
 
-Command line (results go to `runs/<run_id>/`):
+Command line (results go to `runs/<run_id>/`). For the CLI: `pip install -r requirements.txt`, then either `docker compose up -d ollama ollama-init` (Ollama on port 11434, model pulled) or a local Ollama with `ollama pull qwen3:8b`.
 
 ```bash
 python orchestrator.py --brief examples/briefs/decent_idea.json --phases 1,2 --fast --mock-signups 12 --mock-visitors 400
@@ -90,6 +90,8 @@ These limits are enforced in code (`guardrails.py`, `approval.py`) and tested; r
 - Publish, send, spend or sign anything without an explicit founder approval (silence or a closed input counts as No).
 - Change a gate target or outcome after the results are in.
 - Help with excluded products: physical goods; financial, investment or crypto products; health or legal advice.
+
+The rules layer is pattern-based and misses some paraphrases: out-of-sample QA found misses such as "earn their money back in a week, guaranteed". Outside actions (publish, send, spend, sign) stay blocked by the founder-approval check in code regardless of what the guardrails catch.
 
 More detail: [docs/guardrails.md](docs/guardrails.md).
 
