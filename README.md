@@ -1,6 +1,6 @@
 # AI Cofounder
 
-An open-source team of AI agents that takes a founder's idea toward a validated digital product, with a founder confirm-or-override step at every gate. The core engine works (orchestrator, gates, founder approval, decision log, guardrails); the agents behind each step are still STUBBED.
+An open-source team of AI agents that takes a founder's idea toward a validated digital product, with a founder confirm-or-override step at every gate. Phase 1 (Discover) and Phase 2 (Validate: Lean Canvas, a pre-registered demand test, an honest landing page, an evidence gate) work with a local model; publishing and the waitlist form are MOCKED, sign-up numbers are founder-supplied (MOCKED in the demo), and Phases 3-6 are not built yet.
 
 ## Quickstart
 
@@ -21,8 +21,19 @@ Open http://localhost:8501. The first run downloads the model (~5 GB), so it can
 | Founder approval before any publish, send, spend or sign (enforced in code, default No) | Working |
 | Decision log: one validated entry per agent action | Working |
 | Guardrails: brief, request and output checks | Working |
-| Step 1.1 Find opportunities (dummy step) | STUBBED |
-| Step 2.1 Validate demand (dummy step; its metric is typed in, not measured) | STUBBED, metric MOCKED |
+| Step 1.1 Find opportunities: problem, sourced pain signals, 2-3 alternatives (free web search, no API key) | Working |
+| Step 1.2 Score ideas: model sub-scores, weighted total computed in code | Working |
+| Step 1.3 Market: segment, beachhead, sourced competitors, market size only if sourced | Working |
+| Step 1.4 Interviews: Mom Test script, recruiting plan, outreach drafts, summary of real notes | Working |
+| Phase 1 evidence gate (go / repeat / pivot / stop on sourced evidence only) | Working |
+| Outreach sending (founder approval required) | MOCKED |
+| Step 2.1 Lean Canvas: 9 boxes, sourced or ASSUMPTION, price hypothesis, 3 riskiest assumptions (founder sign-off) | Working |
+| Step 2.2 Experiment design: target approved by the founder before results, locked with a SHA-256 hash | Working |
+| Step 2.3 Landing page generation: one self-contained HTML file, checked for fake proof, urgency and promises | Working |
+| Landing page publishing (founder approval required; writes a local copy only) | MOCKED |
+| Waitlist form on the landing page (submits nowhere, labelled on the page) | MOCKED |
+| Step 2.4 Demand results: sign-up data from the founder (`--waitlist` CSV or `--signups`), or typed in for the demo (`--mock-signups`) | Working; demo data MOCKED |
+| Phase 2 demand gate (go / repeat / pivot / stop against the pre-registered target) | Working |
 | Phase 3: Build the product | STUBBED (planned) |
 | Phase 4: Set the price and policies | STUBBED (planned) |
 | Publish (offer page) and send (messages) | MOCKED |

@@ -1,0 +1,19 @@
+{
+  "_note": "Canned web results for tests (no network). Made-up example URLs; tests never fetch them.",
+  "results": [
+    {"title": "How do you track invoices across agencies?", "url": "https://www.reddit.com/r/TranslationStudies/comments/aaa111/how_do_you_track_invoices/", "snippet": "I work with five agencies and keep losing track of which invoices are unpaid.", "provider": "reddit"},
+    {"title": "Spreadsheet for translation jobs?", "url": "https://forum.example-translators.org/topic/123", "snippet": "Every agency has its own portal and PO format, my spreadsheet is a mess.", "provider": "ddgs/bing"},
+    {"title": "Ask HN: tools for freelance translators", "url": "https://news.ycombinator.com/item?id=111111", "snippet": "I pay for a CAT tool but still track deadlines in a notebook.", "provider": "hackernews"},
+    {"title": "Missed a deadline because of two portals", "url": "https://www.reddit.com/r/freelanceTranslators/comments/bbb222/missed_a_deadline/", "snippet": "I missed a deadline because the job was only in one agency portal.", "provider": "reddit"},
+    {"title": "Paying a VA to chase agency payments", "url": "https://forum.example-translators.org/topic/456", "snippet": "I now pay a virtual assistant two hours a week to chase late payments.", "provider": "ddgs/bing"},
+    {"title": "TransTrack: project manager for translators", "url": "https://transtrack.example.com/", "snippet": "Project and invoice management software for freelance translators.", "provider": "ddgs/bing"}
+  ],
+  "pages": {
+    "https://www.reddit.com/r/TranslationStudies/comments/aaa111/how_do_you_track_invoices/": "I work with five agencies and keep losing track of which invoices are unpaid. Comment: same here, I use a spreadsheet.",
+    "https://forum.example-translators.org/topic/123": "Every agency has its own portal and PO format, my spreadsheet is a mess.",
+    "https://news.ycombinator.com/item?id=111111": "I pay for a CAT tool but still track deadlines in a notebook.",
+    "https://www.reddit.com/r/freelanceTranslators/comments/bbb222/missed_a_deadline/": "I missed a deadline because the job was only in one agency portal.",
+    "https://forum.example-translators.org/topic/456": "I now pay a virtual assistant two hours a week to chase late payments.",
+    "https://transtrack.example.com/": "TransTrack is project and invoice management software for freelance translators."
+  }
+}

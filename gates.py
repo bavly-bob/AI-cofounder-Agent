@@ -274,8 +274,15 @@ class FounderApprovalGate(Gate):
     """
     name = "founder_approval"
 
-    def __init__(self, kind: str, summary: str, executor, payload_fn=None):
+    def __init__(self, kind: str, summary: str, executor, payload_fn=None, reject_outcome: "Outcome" = None,
+                 on_approved=None, name: str | None = None):
         self.kind, self.summary, self.executor, self.payload_fn = kind, summary, executor, payload_fn
+        # An explicit founder No gives ``reject_outcome`` (default STOP; REPEAT = redo the step with the
+        # founder's note). Silence / no founder is always STOP: denied by default.
+        self.reject_outcome = reject_outcome or Outcome.STOP
+        self.on_approved = on_approved   # callable(action_result, result, ctx) after an approved execution
+        if name:
+            self.name = name
 
     def describe_target(self) -> dict:
         return {"gate": self.name, "kind": self.kind,
@@ -298,12 +305,22 @@ class FounderApprovalGate(Gate):
                                 reviewable=False)
 
         if action.approved and action.executed:
-            return decide(Outcome.GO, [f"The founder approved the {self.kind} action, and it was carried out."],
-                          FOUNDER, "approved by the founder")
+            extra = []
+            if callable(self.on_approved):
+                extra = list(self.on_approved(action, result, ctx) or [])
+            return decide(Outcome.GO, [f"The founder approved the {self.kind} action, and it was carried out."]
+                          + extra, FOUNDER, "approved by the founder")
         if action.approved:
             return decide(Outcome.STOP,
                           [f"The founder approved the {self.kind} action, but it FAILED: {action.error}"],
                           "system", "approved, then failed")
+        if action.decision == "rejected" and self.reject_outcome == Outcome.REPEAT:
+            note = action.note or "answered No"
+            ctx.options[f"founder_note_{getattr(result, 'phase', 0)}_{getattr(result, 'step', 0)}"] = note
+            return decide(Outcome.REPEAT, [
+                f"The founder rejected this ({note}). The step is redone with the founder's note.",
+                "Nothing was published, sent, spent or signed.",
+            ], FOUNDER, "rejected by the founder: redo the step")
         if action.decision == "rejected":  # an explicit No from the founder
             return decide(Outcome.STOP, [
                 f"The founder rejected the {self.kind} action ({action.note or 'answered No'}).",
@@ -415,9 +432,10 @@ def render_decision_md(decision: GateDecision, run_id: str, phase: int, step: in
         *[f"- {r}" for r in decision.reasons],
         "",
     ]
-    if decision.outcome != Outcome.GO and decision.change_conditions:
-        lines += ["## What evidence would change this decision", "",
-                  *[f"- {c}" for c in decision.change_conditions], ""]
+    # Shown for every outcome: for a GO it says what evidence would turn it into REPEAT/PIVOT/STOP.
+    lines += ["## What evidence would change this decision", "",
+              *[f"- {c}" for c in (decision.change_conditions
+                                   or ["New evidence that contradicts the evidence above."])], ""]
     if not decision.reviewable:
         lines += ["## Founder decision", "", *_founder_approval_lines(decision), ""]
         return "\n".join(lines)
@@ -434,3 +452,272 @@ def render_decision_md(decision: GateDecision, run_id: str, phase: int, step: in
                          f"founder outcome {final.founder_outcome.value.upper()} (approved_by: founder).")
         lines.append("")
     return "\n".join(lines)
+
+
+# --- Phase 1 evidence gate (M2) ------------------------------------------------
+
+def load_phase1_thresholds() -> dict:
+    import json
+    from pathlib import Path
+    path = Path(__file__).resolve().parent / "config" / "thresholds.json"
+    return json.loads(path.read_text(encoding="utf-8"))["phase1"]
+
+
+class Phase1EvidenceGate(Gate):
+    """After step 1.4. Uses only sourced (retrieved URL), non-MOCKED evidence.
+
+    STOP: too few sourced pain signals or domains, main score too low, a hard
+    founder-fit blocker, or an excluded product. PIVOT: an alternative scores at
+    least ``pivot_margin`` higher and has its own sourced signals. REPEAT step 1.1
+    (at most once): borderline signals or score. GO otherwise, with open risks.
+    """
+    name = "discover"
+
+    def __init__(self, thresholds: dict | None = None):
+        self.t = dict(thresholds or load_phase1_thresholds())
+
+    def _target_text(self) -> str:
+        t = self.t
+        return (f">= {t['min_pain_signals']} distinct sourced pain signals from >= {t['min_signal_domains']} "
+                f"domains; main idea score >= {t['min_main_score']}/5; no hard founder-fit blocker; not an "
+                f"excluded product (borderline: <= {t['borderline_max_signals']} signals or score <= "
+                f"{t['borderline_max_score']} -> REPEAT once; an alternative >= {t['pivot_margin']} higher "
+                f"with its own sourced signals -> PIVOT)")
+
+    def describe_target(self) -> dict:
+        return {"gate": self.name, "thresholds": dict(self.t), "target_text": self._target_text()}
+
+    def evaluate(self, result, ctx, attempts_remaining: int = 0) -> GateDecision:
+        import guardrails
+        from agents.common import current_idea, domains, sourced_signals
+
+        t = self.t
+        signals = sourced_signals(ctx)
+        n, doms = len(signals), domains(signals)
+        scoring = ctx.latest(1, 2)
+        sdata = (scoring.data if scoring else {}) or {}
+        ideas = sdata.get("ideas") or []
+        main = next((x for x in ideas if x.get("id") == "main"), None)
+        main_total = main["total"] if main else None
+        blocker = (sdata.get("hard_blocker") or "").strip()
+        verdict = guardrails.check_brief(current_idea(ctx))
+        excluded = not verdict.allowed and verdict.category == "excluded_product"
+        repeats_done = max(0, sum(1 for r in ctx.results if (r.phase, r.step) == (1, 1))
+                           - int(ctx.options.get("phase1_runs_before_pivot", 0)) - 1)
+        alts = [x for x in ideas if x.get("id") != "main"]
+        top_alt = max(alts, key=lambda x: x["total"], default=None)
+        margin = (top_alt["total"] - main_total) if (top_alt and main_total is not None) else None
+        alt_name = (top_alt.get("short") or top_alt["name"]) if top_alt else None
+
+        def mark(ok):
+            return "PASS" if ok else "FAIL"
+
+        score_text = "none" if main_total is None else f"{main_total:.2f}"
+        fetched = sum(1 for s in signals if s.get("source_kind") == "fetched page")
+        snippets = sum(1 for s in signals if s.get("source_kind") == "search snippet")
+        prev_n = ctx.options.get("phase1_prev_signal_count")
+        no_new = repeats_done > 0 and prev_n is not None and n <= prev_n
+        ctx.options["phase1_prev_signal_count"] = n
+        rows = [
+            f"Sourced pain signals: {n} (threshold >= {t['min_pain_signals']}) - {mark(n >= t['min_pain_signals'])}",
+            f"Signal source text checked: {fetched} fetched page(s), {snippets} search snippet(s) "
+            "(a signal counts only if its wording matches the retrieved text)",
+            f"Distinct source domains: {len(doms)} (threshold >= {t['min_signal_domains']}) - "
+            f"{mark(len(doms) >= t['min_signal_domains'])}" + (f" [{', '.join(doms)}]" if doms else ""),
+            f"Main idea score: {score_text}/5 (threshold >= {t['min_main_score']}) - "
+            f"{mark(main_total is not None and main_total >= t['min_main_score'])}",
+            f"Hard founder-fit blocker: {blocker or 'none'} - {mark(not blocker)}",
+            f"Excluded product: {'yes' if excluded else 'no'} - {mark(not excluded)}",
+            "Top alternative: " + (f"{alt_name} scores {top_alt['total']:.2f} ({margin:+.2f} vs main, pivot "
+                                   f"needs +{t['pivot_margin']}), {top_alt['signals']} own sourced signal(s)"
+                                   if top_alt and margin is not None else "none"),
+        ]
+        evidence = {"sourced_signals": n, "domains": doms, "main_score": main_total, "hard_blocker": blocker or None,
+                    "excluded": excluded, "top_alternative": alt_name, "alternative_margin": margin,
+                    "repeats_done": repeats_done, "thresholds": dict(t), "mocked_evidence_counted": False,
+                    "signals_from_fetched_pages": fetched, "signals_from_search_snippets": snippets,
+                    "repeat_found_no_new_evidence": bool(no_new)}
+        actual = f"{n} sourced signals from {len(doms)} domain(s); main score {score_text}/5"
+
+        def decide(outcome, reasons, change):
+            return GateDecision(outcome, reasons + ["Threshold check:"] + rows, evidence, "system", self.name,
+                                self._target_text(), actual, change)
+
+        stop = []
+        if n < t["min_pain_signals"] or len(doms) < t["min_signal_domains"]:
+            stop.append(f"Too little sourced pain evidence: {n} signal(s) from {len(doms)} domain(s); "
+                        f"at least {t['min_pain_signals']} from {t['min_signal_domains']} domains are required.")
+        if main_total is None or main_total < t["min_main_score"]:
+            stop.append(f"The main idea scores {score_text}/5, below {t['min_main_score']}.")
+        if blocker:
+            stop.append(f"Hard founder-fit blocker: {blocker}")
+        if excluded:
+            stop.append("The idea is an excluded product.")
+        if stop:
+            return decide(Outcome.STOP, stop + ["Weak or missing evidence never passes this gate."], [
+                f"At least {t['min_pain_signals']} distinct pain signals (complaints, questions, paid "
+                f"workarounds) from {t['min_signal_domains']}+ different sites, each with a retrieved URL.",
+                f"A main-idea score of {t['min_main_score']}/5 or more (better founder fit, or sourced pain).",
+                "Real interview notes (--interviews) showing the problem in people's own words."])
+        if (top_alt and margin is not None and margin >= t["pivot_margin"]
+                and top_alt["signals"] >= t["pivot_min_alt_signals"]):
+            # Applied by the orchestrator only if the run really pivots (the founder may override).
+            ctx.options["pivot_candidate"] = {
+                "pivot_idea": top_alt["name"],
+                "phase1_runs_before_pivot": sum(1 for r in ctx.results if (r.phase, r.step) == (1, 1))}
+            return decide(Outcome.PIVOT, [
+                f"The alternative '{alt_name}' scores {top_alt['total']:.2f}, {margin:.2f} above the main idea "
+                f"({score_text}), and has {top_alt['signals']} sourced signal(s) of its own. Phase 1 is rerun "
+                "on that alternative."],
+                ["A main idea that scores within the pivot margin of the best alternative."])
+        borderline = n <= t["borderline_max_signals"] or main_total <= t["borderline_max_score"]
+        if borderline and repeats_done < t["max_repeats"]:
+            return decide(Outcome.REPEAT, [
+                f"The evidence is borderline ({n} signals, score {score_text}). Step 1.1 is repeated once "
+                "with new search queries."],
+                [f"More than {t['borderline_max_signals']} sourced signals and a score above "
+                 f"{t['borderline_max_score']}."])
+        risks = ["Open risk: every signal comes from public web text, not from talking to customers.",
+                 "Real interviews are needed before the Phase 2 gate.",
+                 "Open risk: the sub-scores other than pain evidence are model judgements (ASSUMPTION)."]
+        if borderline:
+            risks.insert(0, f"Open risk: the evidence is still borderline after {repeats_done} repeat(s) "
+                            f"({n} signals, score {score_text}).")
+        if no_new:
+            risks.insert(0, f"The REPEAT found no new sourced evidence ({prev_n} signal(s) before, {n} now).")
+        return decide(Outcome.GO, ["The Phase 1 evidence thresholds are met."] + risks,
+                      ["Interviews that contradict the web signals."])
+
+
+# --- Phase 2 demand gate (M3) --------------------------------------------------
+
+def load_phase2_thresholds() -> dict:
+    import json
+    from pathlib import Path
+    path = Path(__file__).resolve().parent / "config" / "thresholds.json"
+    return json.loads(path.read_text(encoding="utf-8"))["phase2"]
+
+
+MOCKED_EVIDENCE = "MOCKED evidence — demonstration only"
+NOT_RUN_YET = "demand test not run yet"
+
+
+class Phase2DemandGate(Gate):
+    """After step 2.4. Judges the demand-test evidence against the target the founder approved
+    (and hashed) in step 2.2, before any result existed.
+
+    GO: sign-ups >= target AND conversion >= minimum. REPEAT (once, with a changed channel or
+    message), then PIVOT: 50-99% of the target, or the target met with too low / unmeasured
+    conversion. STOP below 50%, or PIVOT to Phase 1's top alternative when it scored well.
+    Missing evidence, a missing target or a changed target is STOP, never GO. MOCKED evidence
+    is labelled on every outcome.
+    """
+    name = "validate"
+
+    def __init__(self, thresholds: dict | None = None):
+        self.t = dict(thresholds or load_phase2_thresholds())
+
+    def describe_target(self) -> dict:
+        t = self.t
+        return {"gate": self.name, "thresholds": dict(t), "target_text": (
+            f"the founder-approved, SHA-256-registered target from step 2.2 (default: >= {t['target_signups']} "
+            f"waitlist sign-ups in {t['window_days']} days and >= {t['min_conversion']:.0%} conversion); "
+            f"50-99% -> REPEAT once, then PIVOT; < 50% -> STOP (or PIVOT to a well-scored Phase 1 alternative)")}
+
+    def evaluate(self, result, ctx, attempts_remaining: int = 0) -> GateDecision:
+        from agents.experimenter import target_hash
+        t = self.t
+        data = (getattr(result, "data", None) or {})
+        reg = ctx.options.get("experiment_target")
+        ev = data.get("evidence") or {}
+        mocked = bool(ev.get("mocked"))
+        run_id = getattr(ctx, "run_id", "<run_id>")
+        evidence = {"evidence_type": ev.get("type"), "signups": ev.get("signups"), "visitors": ev.get("visitors"),
+                    "conversion": ev.get("conversion"), "days_elapsed": ev.get("days_elapsed"), "mocked": mocked,
+                    "target": None, "target_sha256": None, "approved_at": None}
+
+        def decide(outcome, reasons, target_text, actual, change):
+            d = GateDecision(outcome, list(reasons), evidence, "system", self.name, target_text, actual, change)
+            if mocked:
+                d.basis = "MOCKED"
+                d.reasons.append(f"{MOCKED_EVIDENCE}: the sign-up numbers were typed in for a demo. "
+                                 "This is not a real validation.")
+            return d
+
+        rerun = (f"rerun with `--resume {run_id} --from phase2 --signups N --visitors V` "
+                 "(or `--waitlist export.csv`)")
+        if not isinstance(reg, dict) or not reg.get("approved_at"):
+            return decide(Outcome.STOP, ["No pre-registered target: the founder did not approve a demand-test "
+                                         "target before results existed, so no result can be judged.",
+                                         "Missing evidence never passes this gate."],
+                          "none approved", "not judged", ["A demand test whose target the founder approved in "
+                                                          "step 2.2 before any result existed."])
+        target = reg["target"]
+        evidence.update(target=target, target_sha256=reg.get("sha256"), approved_at=reg.get("approved_at"))
+        target_text = (f">= {target['signups']} waitlist sign-ups in {target['window_days']} days and >= "
+                       f"{target['min_conversion']:.0%} conversion (approved by the founder at {reg['approved_at']}; "
+                       f"SHA-256 {str(reg.get('sha256', ''))[:16]}...)")
+        if target_hash(target) != reg.get("sha256"):
+            return decide(Outcome.STOP, ["The registered target does not match its SHA-256 hash: it was changed "
+                                         "after approval. The result cannot be judged."], target_text,
+                          "not judged (target changed)", ["A new experiment (REPEAT of step 2.2) with a newly "
+                                                          "approved target."])
+        if ev.get("type") in (None, "none") or ev.get("signups") is None:
+            return decide(Outcome.STOP, [f"{NOT_RUN_YET} — {rerun}.",
+                                         "No sign-up data was supplied, and missing evidence is never GO."],
+                          target_text, "no evidence", [f"Real waitlist numbers: {rerun}."])
+
+        signups, conv = ev["signups"], ev.get("conversion")
+        share = signups / target["signups"] if target["signups"] else 0
+        conv_text = "not measured (no visitor count)" if conv is None else f"{conv:.1%}"
+        label = MOCKED_EVIDENCE if mocked else {"waitlist_csv": "waitlist export (CSV, aggregate counts only)",
+                                                "founder_reported": "founder-reported"}.get(ev["type"], ev["type"])
+        visitors = ev.get("visitors")
+        actual = (f"{signups} sign-ups ({share:.0%} of the target); visitors "
+                  f"{visitors if visitors is not None else 'unknown'}; conversion {conv_text}; "
+                  f"day {ev.get('days_elapsed', '?')} of {target['window_days']}; evidence: {label}")
+        conv_ok = conv is not None and conv >= target["min_conversion"]
+        repeats_done = max(0, sum(1 for r in ctx.results if (r.phase, r.step) == (2, 4))
+                           - int(ctx.options.get("phase2_runs_before_resume", 0)) - 1)
+        evidence["repeats_done"] = repeats_done
+        change_go = [f"At least {target['signups']} sign-ups with conversion >= {target['min_conversion']:.0%} "
+                     f"within {target['window_days']} days, from real (not MOCKED) waitlist data."]
+
+        if share >= 1 and conv_ok:
+            return decide(Outcome.GO, [f"Target met: {signups} sign-ups against {target['signups']}, conversion "
+                                       f"{conv_text} against {target['min_conversion']:.0%}."], target_text, actual,
+                          ["Sign-ups below the target, or conversion below the minimum."])
+        if share >= t["repeat_band_min"]:
+            why = (f"{signups} sign-ups is {share:.0%} of the target" if share < 1 else
+                   f"the sign-up target was reached, but conversion is {conv_text}, below "
+                   f"{target['min_conversion']:.0%} or not measured")
+            if repeats_done < t["max_repeats"]:
+                ctx.options["experiment_change_note"] = (
+                    f"The previous demand test missed: {why}. Change the channel or the message.")
+                return decide(Outcome.REPEAT, [f"Target NOT met: {why}.",
+                                               "The demand test is repeated ONCE with a changed channel or message "
+                                               "(a new experiment, approved again before results)."],
+                              target_text, actual, change_go)
+            return decide(Outcome.PIVOT, [f"Target NOT met: {why}.",
+                                          f"The test was already repeated {repeats_done} time(s), so this is a PIVOT."],
+                          target_text, actual, change_go)
+        reasons = [f"Target NOT met: {signups} sign-ups is {share:.0%} of the target of {target['signups']} "
+                   f"(less than {t['repeat_band_min']:.0%}). The demand evidence is weak."]
+        alt = self._strong_alternative(ctx)
+        if alt:
+            reasons.append(f"Phase 1's top alternative '{alt['name']}' scored {alt['total']:.2f}/5 with "
+                           f"{alt['signals']} sourced signal(s): PIVOT to it (a new Phase 1 run on that idea).")
+            return decide(Outcome.PIVOT, reasons, target_text, actual, change_go)
+        reasons.append("No Phase 1 alternative scored well enough to pivot to, so the recommendation is STOP.")
+        return decide(Outcome.STOP, reasons, target_text, actual, change_go)
+
+    def _strong_alternative(self, ctx):
+        scoring = ctx.latest(1, 2)
+        ideas = ((scoring.data if scoring else {}) or {}).get("ideas") or []
+        alts = [x for x in ideas if x.get("id") != "main" and isinstance(x.get("total"), (int, float))]
+        best = max(alts, key=lambda x: x["total"], default=None)
+        if best and best["total"] >= self.t["pivot_alt_min_score"] and \
+                best.get("signals", 0) >= self.t["pivot_min_alt_signals"]:
+            return {"name": best.get("short") or best.get("name"), "total": best["total"],
+                    "signals": best.get("signals", 0)}
+        return None

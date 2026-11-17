@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import tempfile
 import time
 import uuid
@@ -50,6 +51,72 @@ def is_http_url(value) -> bool:
 
 def default_log_path(run_id: str, runs_dir: Path | None = None) -> Path:
     return Path(runs_dir or RUNS_DIR) / run_id / "decision_log.json"
+
+
+# --- privacy scrubber ---------------------------------------------------------
+# Logged prompts, replies and other free text never keep emails, phone numbers,
+# keys/tokens or card numbers. The seven required keys are left as they are
+# (they hold code-chosen names, URLs and numbers), every extra value is scrubbed.
+_SCRUB_RULES = [
+    ("[REDACTED_PRIVATE_KEY]", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)", re.S)),
+    ("[REDACTED_KEY]", re.compile(
+        r"\b(?:sk|pk|rk)[-_](?:live|test|proj|ant)?[-_]?[A-Za-z0-9_\-]{16,}|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
+        r"\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bxox[abprs]-[A-Za-z0-9-]{10,}\b|\bAIza[0-9A-Za-z_\-]{30,}\b|\bhf_[A-Za-z0-9]{20,}\b|"
+        r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{5,}")),
+    ("Bearer [REDACTED_KEY]", re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=\-]{12,}", re.I)),
+    (None, re.compile(r"(?i)\b((?:api[_-]?key|secret|token|access[_-]?key|password|passwd|pwd|auth)\s*[:=]\s*)(['\"]?)[^\s'\",;]{4,}\2")),
+    ("[REDACTED_EMAIL]", re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
+    ("[REDACTED_CARD]", re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")),
+    ("[REDACTED_PHONE]", re.compile(
+        r"(?<![\w+])\+\d{1,3}[\s.\-]?(?:\(?\d{1,4}\)?[\s.\-]?){2,5}\d{2,4}(?!\d)|"   # +20 10 1234 5678
+        r"(?<!\d)01[0125]\d{8}(?!\d)|"                                                # Egyptian mobile
+        r"(?<!\d)\(\d{3}\)\s?\d{3}[\s.\-]\d{4}(?!\d)|(?<![\d\-])\d{3}[\s.]\d{3}[\s.]\d{4}(?!\d)|"
+        r"(?<![\d\-:T])\d{3}-\d{3}-\d{4}(?![\d\-])")),
+]
+# Free-text fields that may carry a whole prompt or reply: scrubbed and shortened.
+PROMPT_KEYS = ("prompt", "response", "reply", "completion", "raw", "raw_reply", "messages", "system", "text")
+MAX_PROMPT_CHARS = 2000
+
+
+def _luhn_ok(digits: str) -> bool:
+    total, alt = 0, False
+    for ch in reversed(digits):
+        d = int(ch)
+        if alt:
+            d = d * 2 - 9 if d > 4 else d * 2
+        total += d
+        alt = not alt
+    return total % 10 == 0
+
+
+def scrub_text(text: str) -> str:
+    """Replace emails, phone numbers, keys/tokens and card numbers with placeholders."""
+    if not isinstance(text, str) or not text:
+        return text
+    for label, rx in _SCRUB_RULES:
+        if label is None:
+            text = rx.sub(lambda m: m.group(1) + "[REDACTED_SECRET]", text)
+        elif label == "[REDACTED_CARD]":
+            text = rx.sub(lambda m: label if _luhn_ok(re.sub(r"\D", "", m.group(0))) else m.group(0), text)
+        else:
+            text = rx.sub(label, text)
+    return text
+
+
+def scrub(value, key: str | None = None, _depth: int = 0):
+    """Scrub every string inside ``value`` (dicts, lists, tuples). Long prompt/reply fields are cut."""
+    if _depth > 20:
+        return "[REDACTED_DEEP_VALUE]"
+    if isinstance(value, str):
+        cleaned = scrub_text(value)
+        if key in PROMPT_KEYS and len(cleaned) > MAX_PROMPT_CHARS:
+            cleaned = cleaned[:MAX_PROMPT_CHARS] + f"... [truncated {len(cleaned) - MAX_PROMPT_CHARS} chars]"
+        return cleaned
+    if isinstance(value, dict):
+        return {k: scrub(v, k if isinstance(k, str) else None, _depth + 1) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [scrub(v, key, _depth + 1) for v in value]
+    return value
 
 
 def validate_entry(entry: dict) -> None:
@@ -111,7 +178,7 @@ class DecisionLogger:
                 raise LogValidationError(f"extra key '{key}' would overwrite a required key")
         if self.run_id is not None and "run_id" not in extra:
             entry["run_id"] = self.run_id
-        entry.update(extra)
+        entry.update(scrub(extra))   # no emails, phones, keys or card numbers in the log
         validate_entry(entry)
         try:
             entry = json.loads(json.dumps(entry, ensure_ascii=False, default=str))

@@ -1,0 +1,54 @@
+{
+  "researcher.plan": {"problem_statement": "Freelance translators working with several agencies lose track of jobs, deadlines and unpaid invoices.", "target_user": "freelance translators with 3+ agency clients", "queries": ["translator track invoices agencies", "freelance translator missed deadline portal", "translator unpaid invoices spreadsheet"]},
+  "researcher.extract": {
+    "pain_signals": [
+      {"summary": "A translator working with five agencies loses track of unpaid invoices.", "source": "S1", "type": "complaint"},
+      {"summary": "A translator says each agency portal and PO format makes their spreadsheet messy.", "source": "S2", "type": "complaint"},
+      {"summary": "A translator pays for a CAT tool but still tracks deadlines in a notebook.", "source": "S3", "type": "paid_workaround"},
+      {"summary": "A translator missed a deadline because a job was only visible in one agency portal.", "source": "S4", "type": "complaint"},
+      {"summary": "A translator pays a virtual assistant to chase late agency payments.", "source": "S5", "type": "paid_workaround"}
+    ],
+    "alternatives": [
+      {"name": "Agency payment-chasing email templates", "description": "A pack of polite reminder templates and a tracker for late agency payments.", "why_fits": "Uses the founder's writing and translation background.", "signal_ids": [5]},
+      {"name": "Translator PO checklist", "description": "A digital checklist for checking agency purchase orders.", "why_fits": "Small and quick to build.", "signal_ids": [2]}
+    ]
+  },
+  "scorer.score": {
+    "ideas": [
+      {"id": "main", "founder_fit": 5, "founder_fit_why": "The founder is a translator who uses Notion.", "budget_feasibility": 5, "budget_feasibility_why": "Templates cost almost nothing to build.", "time_feasibility": 4, "time_feasibility_why": "10 hours a week is enough for a first version.", "values_alignment": 4, "values_alignment_why": "No dark patterns needed.", "differentiation": 3, "differentiation_why": "Generic invoice tools exist, few are translator-specific.", "digital_delivery": 5, "digital_delivery_why": "A template link can be delivered automatically."},
+      {"id": "alt1", "founder_fit": 4, "founder_fit_why": "Writing skills fit.", "budget_feasibility": 5, "budget_feasibility_why": "Cheap.", "time_feasibility": 5, "time_feasibility_why": "Quick.", "values_alignment": 4, "values_alignment_why": "Polite reminders.", "differentiation": 2, "differentiation_why": "Many templates exist.", "digital_delivery": 5, "digital_delivery_why": "A download."},
+      {"id": "alt2", "founder_fit": 3, "founder_fit_why": "Some fit.", "budget_feasibility": 5, "budget_feasibility_why": "Cheap.", "time_feasibility": 5, "time_feasibility_why": "Quick.", "values_alignment": 3, "values_alignment_why": "Neutral.", "differentiation": 2, "differentiation_why": "Weak.", "digital_delivery": 5, "digital_delivery_why": "A download."}
+    ],
+    "hard_blocker": ""
+  },
+  "market_analyst.analyse": {
+    "segment": "Freelance translators who work with several agencies at once",
+    "beachhead": "Freelance translators already using Notion",
+    "use_case": "See every job, deadline and unpaid invoice across agencies in one place",
+    "competitors": [
+      {"name": "TransTrack", "source": "S6", "note": "translator project and invoice software"},
+      {"name": "Spreadsheets", "source": "S2", "note": "the current do-it-yourself workaround"}
+    ],
+    "market_size": {"estimate": "unknown", "source": "", "reasoning": "No retrieved source states how many freelance translators work with several agencies."}
+  },
+  "interviewer.script": {
+    "questions": [
+      "Tell me about the last time you lost track of an agency invoice.",
+      "How do you keep track of jobs from different agencies today?",
+      "What have you tried to keep deadlines in one place?",
+      "What did the last missed or late payment cost you?",
+      "How often did you chase a payment last month?",
+      "Walk me through what you did the last time an agency paid late.",
+      "Would you pay 20 dollars for a Notion template that fixes this?",
+      "What tools do you already pay for in your translation work?",
+      "When did you last look for a better way to track invoices?",
+      "Who else should I talk to about this?"
+    ],
+    "recruit": {"who": "Freelance translators with three or more agency clients", "where": ["translator forums they already use", "the founder's own blog mailing list", "translator association groups"], "how": "Ask one person at a time, say who you are, and offer to share what you learn."},
+    "outreach_draft": "Hi, I am [Your name], a translator. I am learning how other freelancers keep track of agency jobs and invoices. Could I ask you about your own way of doing it in a 20-minute call? No selling, just questions."
+  },
+  "interviewer.notes": {"findings": [
+    {"text": "Two of three translators interviewed track agency invoices in a spreadsheet.", "type": "current_workaround"},
+    {"text": "One translator lost a payment last year because an invoice was never sent.", "type": "pain"}
+  ]}
+}

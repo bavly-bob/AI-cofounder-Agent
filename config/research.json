@@ -1,0 +1,21 @@
+{
+  "_note": "Phase 1 research budget for the whole phase. SEARCH_MAX_QUERIES / FETCH_MAX_PAGES in .env can lower these, never raise them (hard caps: 8 searches, 10 fetches).",
+  "normal": {
+    "max_searches": 8,
+    "max_fetches": 10,
+    "discover_queries": 3,
+    "market_queries": 2,
+    "results_per_query": 8,
+    "fetch_per_step": 8
+  },
+  "fast": {
+    "max_searches": 5,
+    "max_fetches": 5,
+    "discover_queries": 2,
+    "market_queries": 1,
+    "results_per_query": 8,
+    "fetch_per_step": 5
+  },
+  "_note_signal_check": "A pain signal counts only if at least this share of its content words appears in the retrieved text of the source it cites; otherwise it is downgraded to ASSUMPTION.",
+  "signal_min_word_overlap": 0.3
+}

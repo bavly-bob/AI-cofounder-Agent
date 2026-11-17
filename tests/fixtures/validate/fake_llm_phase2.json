@@ -1,0 +1,36 @@
+{
+  "strategist.canvas": {
+    "problem": [{"text": "Translators with several agencies lose track of unpaid invoices.", "source": "S1"},
+                {"text": "Deadlines are scattered across agency portals.", "source": "S4"}],
+    "customer_segments": [{"text": "Freelance translators with three or more agency clients", "source": ""}],
+    "unique_value_proposition": [{"text": "One Notion workspace for every agency job, deadline and invoice", "source": ""}],
+    "solution": [{"text": "Notion templates with a job board, deadline view and invoice tracker", "source": ""}],
+    "channels": [{"text": "Translator forums and the founder's blog mailing list", "source": "S2"}],
+    "revenue_streams": [{"text": "One-time template price, to be tested", "source": "S3"},
+                        {"text": "Projected revenue of 5000 USD per month", "source": ""}],
+    "cost_structure": [{"text": "Founder time and a Notion account", "source": ""}],
+    "key_metrics": [{"text": "Waitlist sign-ups and conversion", "source": ""}],
+    "unfair_advantage": [{"text": "None yet", "source": ""}],
+    "price_hypothesis": "A one-time price of about 19 USD, to be tested",
+    "riskiest_assumptions": [
+      {"assumption": "Translators feel the invoice pain often enough to switch tools.", "cheap_test": "Ask five translators about their last late payment."},
+      {"assumption": "They want a Notion template rather than an app.", "cheap_test": "Ask which tools they already pay for."},
+      {"assumption": "They would pay for a template.", "cheap_test": "Waitlist test against the pre-registered target."}
+    ]
+  },
+  "experimenter.design": {
+    "hypothesis": "Freelance translators who juggle several agencies will join a waitlist for an invoice and deadline template.",
+    "channels": ["Translator forums the founder already uses", "The founder's blog mailing list"],
+    "kill_criteria": ["Fewer than 10 sign-ups after the first week"],
+    "message": "See every agency job, deadline and invoice in one place.",
+    "suggested_target": 0,
+    "target_reason": ""
+  },
+  "copywriter.page": {
+    "product_name": "Agency Desk",
+    "headline": "Every agency job, deadline and invoice in one place",
+    "problem": "Working with several agencies means many portals, many formats and invoices that slip through.",
+    "how_it_works": ["Copy the template into your Notion.", "Add each agency job as it arrives.", "See open deadlines and unpaid invoices at a glance."],
+    "who_its_for": "Freelance translators who work with several agencies at once."
+  }
+}

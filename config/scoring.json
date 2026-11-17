@@ -1,0 +1,13 @@
+{
+  "_note": "Weights for the idea score (1-5 per criterion). The weighted total is computed in Python: sum(weight * score) / sum(weights). pain_evidence is computed from sourced pain signals only, using pain_evidence_bands: [minimum sourced signals, score].",
+  "weights": {
+    "pain_evidence": 0.25,
+    "founder_fit": 0.15,
+    "budget_feasibility": 0.10,
+    "time_feasibility": 0.10,
+    "values_alignment": 0.10,
+    "differentiation": 0.15,
+    "digital_delivery": 0.15
+  },
+  "pain_evidence_bands": [[0, 1], [2, 2], [3, 3], [5, 4], [8, 5]]
+}

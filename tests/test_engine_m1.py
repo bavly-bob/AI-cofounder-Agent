@@ -23,6 +23,23 @@ NAME_RE = re.compile(r"^phase\d+_(step\d+|gate)_[a-z0-9_]+\.(md|json)$")
 TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
+@pytest.fixture(autouse=True)
+def m1_dummy_registry():
+    """These engine tests exercise the M1 flow with the two STUBBED dummy steps (no model, no
+    network). Since M2 the real Phase 1 agents are registered instead of DummyDiscoverStep, so
+    the registry is pinned to the dummies here and restored afterwards."""
+    import steps as steps_module
+
+    before = dict(steps_module._REGISTRY)
+    steps_module._REGISTRY.clear()
+    steps_module._REGISTRY.update({(1, 1): DummyDiscoverStep, (2, 1): DummyValidateStep})
+    try:
+        yield
+    finally:
+        steps_module._REGISTRY.clear()
+        steps_module._REGISTRY.update(before)
+
+
 class ScriptedApprover(Approver):
     """Test-only approver: answers from a script. Lives under tests/ and nowhere else."""
 

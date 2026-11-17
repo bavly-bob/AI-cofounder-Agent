@@ -1,6 +1,9 @@
 services:
   ollama:
     image: ollama/ollama
+    # Published so host scripts (e.g. scripts/demo_run.py) reach it at http://localhost:11434.
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_models:/root/.ollama
     healthcheck:
@@ -29,14 +32,19 @@ services:
 
   app:
     build: .
+    # Starts as soon as Ollama is up, so the UI shows "Model loading" while
+    # ollama-init is still downloading the model.
     depends_on:
-      ollama-init:
-        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
     ports:
       - "${APP_PORT:-8501}:8501"
+    volumes:
+      - runs_data:/app/runs   # run state and per-run logs survive restarts
 
 volumes:
   ollama_models:
+  runs_data:

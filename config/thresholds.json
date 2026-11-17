@@ -1,0 +1,24 @@
+{
+  "_note": "Phase 1 evidence gate. Fixed before the phase starts and logged then. Only sourced (retrieved URL), non-MOCKED evidence counts.",
+  "phase1": {
+    "min_pain_signals": 3,
+    "min_signal_domains": 2,
+    "min_main_score": 2.5,
+    "borderline_max_signals": 4,
+    "borderline_max_score": 3.0,
+    "pivot_margin": 0.5,
+    "pivot_min_alt_signals": 2,
+    "max_repeats": 1
+  },
+  "_note_phase2": "Phase 2 demand gate. The default target is proposed in step 2.2 and pre-registered (SHA-256) when the founder approves it, before any result exists. The agent may only propose a STRICTER target.",
+  "phase2": {
+    "target_signups": 100,
+    "window_days": 14,
+    "min_conversion": 0.05,
+    "repeat_band_min": 0.5,
+    "max_repeats": 1,
+    "pivot_alt_min_score": 3.5,
+    "pivot_min_alt_signals": 2,
+    "max_target_signups": 1000
+  }
+}

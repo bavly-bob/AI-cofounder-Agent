@@ -1,0 +1,10 @@
+# Friendly errors only: no stack traces in the browser.
+[client]
+showErrorDetails = "none"
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true
