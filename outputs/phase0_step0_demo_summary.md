@@ -16,11 +16,11 @@
 |---|---|
 | Model | `qwen3:1.7b` (open-weight, run locally via Ollama) |
 | Cost | $0.00 (local model) |
-| Tokens | 11892 in total |
-| Wall time | 164 s in total, including the founder's answers |
-| Started | 2026-11-17T20:07:26Z |
+| Tokens | 12206 in total |
+| Wall time | 123 s in total, including the founder's answers |
+| Started | 2026-11-17T21:06:01Z |
 | Research budget | fast (smaller) |
-| Decision log | `decision_log.json`, 58 entries |
+| Decision log | `decision_log.json`, 60 entries |
 
 ## What was MOCKED or STUBBED
 
@@ -32,9 +32,9 @@
 ## Demo A: weak idea
 
 - Brief: `examples/briefs/weak_idea.json`
-- Run id: `20261117T200726Z-19f3bc`
+- Run id: `20261117T210601Z-f3ad74`
 - Command: `python orchestrator.py --brief examples/briefs/weak_idea.json --phases 1 --fast`
-- Wall time: 43 s; tokens: 6011; model: `qwen3:1.7b`
+- Wall time: 80 s; tokens: 6227; model: `qwen3:1.7b`
 - Final outcome: STOP (status: stopped)
 
 | After step | Gate | System outcome | Founder | Final |
@@ -53,9 +53,9 @@ Files:
 ## Demo B: decent idea
 
 - Brief: `examples/briefs/decent_idea.json`
-- Run id: `20261117T200809Z-262e2a`
+- Run id: `20261117T210721Z-68f7b1`
 - Command: `python orchestrator.py --brief examples/briefs/decent_idea.json --phases 1,2 --mock-signups 12 --mock-visitors 400 --fast`
-- Wall time: 121 s; tokens: 5881; model: `qwen3:1.7b`
+- Wall time: 43 s; tokens: 5979; model: `qwen3:1.7b`
 - Final outcome: STOP (status: stopped)
 - MOCKED evidence: 12 sign-ups / 400 visitors (MOCKED)
 

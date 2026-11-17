@@ -1,4 +1,4 @@
-> run_id: 20261117T200726Z-19f3bc | model: none (no AI used) | status: WORKING
+> run_id: 20261117T210601Z-f3ad74 | model: none (no AI used) | status: WORKING
 
 # Gate decision: discover (after step 1.4, attempt 1)
 
@@ -19,7 +19,7 @@
 - Main idea score: 2.50/5 (threshold >= 2.5) - PASS
 - Hard founder-fit blocker: none - PASS
 - Excluded product: no - PASS
-- Top alternative: FontPairingApp scores 2.50 (+0.00 vs main, pivot needs +0.5), 1 own sourced signal(s)
+- Top alternative: Font Review App scores 2.50 (+0.00 vs main, pivot needs +0.5), 1 own sourced signal(s)
 
 ## What evidence would change this decision
 

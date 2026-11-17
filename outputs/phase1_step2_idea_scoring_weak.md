@@ -1,4 +1,4 @@
-> run_id: 20261117T200726Z-19f3bc | model: qwen3:1.7b | status: WORKING
+> run_id: 20261117T210601Z-f3ad74 | model: qwen3:1.7b | status: WORKING
 
 # Phase 1, step 2: idea scoring
 
@@ -7,18 +7,18 @@ Sub-scores 1-5. Pain evidence is computed from sourced pain signals only; the ot
 | Rank | Idea | Total (1-5) | pain_evidence | founder_fit | budget_feasibility | time_feasibility | values_alignment | differentiation | digital_delivery |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | MAIN: A paid weekly email newsletter that reviews fonts for people who design restaurant menus | **2.50** | 1 | 3 | 3 | 3 | 3 | 3 | 3 |
-| 2 | FontPairingApp: A digital tool that helps designers create menu layouts with pre-selected font pairings and readability  | **2.50** | 1 | 3 | 3 | 3 | 3 | 3 | 3 |
-| 3 | MenuDesignStudio: A platform that offers templates, fonts, and design tips for restaurant menus, focusing on accessibili | **1.95** | 1 | 1 | 3 | 2 | 3 | 2 | 3 |
+| 2 | Font Review App: A digital app that curates and delivers font reviews for restaurant menus, tailored for freelance desig | **2.50** | 1 | 3 | 3 | 3 | 3 | 3 | 3 |
+| 3 | Menu Typography Tool: A digital tool that helps designers create readable and aesthetically pleasing restaurant menus wi | **2.50** | 1 | 3 | 3 | 3 | 3 | 3 | 3 |
 
 ## Why (main idea)
 
 - pain_evidence: 1 (computed in Python from 1 sourced pain signal(s))
-- founder_fit: 3 (Founder has graphic design and writing skills relevant to the idea.)
-- budget_feasibility: 3 (50 USD is sufficient for weekly content creation and email delivery.)
-- time_feasibility: 3 (4 hours per week can be allocated to content creation and email management.)
-- values_alignment: 3 (Honesty and calm business values align with the idea's focus on readability and accessibility.)
-- differentiation: 3 (Focus on font reviews and readability guidelines differentiates from generic newsletter services.)
-- digital_delivery: 3 (Can be delivered automatically via email and scaled digitally.)
+- founder_fit: 3 (Founder has graphic design and writing skills, which are relevant to font review.)
+- budget_feasibility: 3 (50 USD can cover development and maintenance of a weekly newsletter.)
+- time_feasibility: 3 (4 hours per week can be allocated to content creation and delivery.)
+- values_alignment: 3 (Honesty and small business values align with the goal of providing honest font reviews.)
+- differentiation: 3 (Provides curated, paid reviews that are not available in the free market.)
+- digital_delivery: 3 (Can be delivered automatically via email, with no physical product required.)
 
 No alternative scores higher than the original idea.
 

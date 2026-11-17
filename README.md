@@ -71,11 +71,11 @@ All tests are in `tests/` and run offline with `pytest -q` (no Ollama, no networ
 
 ## Cost per run
 
-About $0.00 per run (local `qwen3:1.7b`; measured in the committed demo: about 6,000 tokens and 43-121 s per brief for Phase 1 with `--fast`, 6,011 and 5,881 tokens, wall time including the founder's answers). Figures for `qwen3:8b` or a full research budget have not been measured. Source: [outputs/phase0_step0_demo_summary.md](outputs/phase0_step0_demo_summary.md).
+About $0.00 per run (local `qwen3:1.7b`; measured in the committed demo: about 6,000 tokens and 43-80 s per brief for Phase 1 with `--fast`, 6,227 and 5,979 tokens, wall time including the founder's answers). Figures for `qwen3:8b` or a full research budget have not been measured. Source: [outputs/phase0_step0_demo_summary.md](outputs/phase0_step0_demo_summary.md).
 
 ## Demo video
 
-Link: TODO — add before the freeze
+Link: https://youtu.be/itQRwdrrKZ8
 
 ## What our system will NOT do
 
