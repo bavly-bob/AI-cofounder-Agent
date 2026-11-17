@@ -1,0 +1,51 @@
+name: CI
+
+# Free GitHub-hosted runners only. No secrets, no paid services, no model download.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest -q
+
+  checker:
+    # scripts/check_submission.py requires the current branch to be `main`
+    # and has no flag to skip that item, so it only runs on main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run submission checker
+        run: python scripts/check_submission.py
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: docker compose config
+      # Builds the app image only; the Ollama model is never pulled in CI.
+      - name: Build app image
+        run: docker build .
