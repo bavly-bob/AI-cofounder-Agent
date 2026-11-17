@@ -6,4 +6,4 @@ In short: we pledge to make participation in this community a harassment-free ex
 
 ## Reporting
 
-Report unacceptable behaviour to the project maintainers at: TODO (maintainer contact, to be added). All reports will be reviewed promptly and fairly, and the privacy of the person reporting will be respected.
+Report unacceptable behaviour to the project maintainers by opening a GitHub issue on this repository, or privately through GitHub's "Report content" option on the comment or issue concerned. All reports will be reviewed promptly and fairly, and the privacy of the person reporting will be respected.

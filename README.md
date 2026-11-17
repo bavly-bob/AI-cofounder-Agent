@@ -97,8 +97,8 @@ More detail: [docs/guardrails.md](docs/guardrails.md).
 
 ## How the project stays alive after the hackathon
 
-- **Maintainers:** TODO (name, GitHub handle) and TODO (name, GitHub handle).
+- **Maintainers:** the Jensen Huang team that built this entry; the repository is owned at [github.com/bavly-bob](https://github.com/bavly-bob). Questions and reviews go through GitHub issues and pull requests on this repository.
 - **Roadmap:** see [ARCHITECTURE.md](ARCHITECTURE.md#roadmap): the Phase 3 builder, Phase 4 pricing and policies, real payments in test mode on founder-owned accounts, Phase 6 metrics, more languages and models.
-- **Community:** [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); issues labelled `good first issue`; a chat channel will be opened and linked here.
+- **Community:** [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); issues labelled `good first issue`; discussion happens in this repository's GitHub issues.
 - **Funding:** open-source grants and sponsors; possibly an optional hosted service later, which would never paywall core features.
 - **License:** MIT ([LICENSE](LICENSE)).
