@@ -75,7 +75,7 @@ About $0.00 per run (local `qwen3:1.7b`; measured in the committed demo: about 6
 
 ## Demo video
 
-Link: https://youtu.be/itQRwdrrKZ8
+Link: https://youtu.be/0y_t-RW36W8
 
 ## What our system will NOT do
 
