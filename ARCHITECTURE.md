@@ -233,7 +233,7 @@ flowchart LR
 
 1. Phase 3 builder: the builder, test and docs agents, with `TestsPassGate` plus founder approval.
 2. Phase 4: the pricing agent (sourced competitor prices) and the policy agent (drafts labelled "draft, not legal advice — review by a qualified person").
-3. Connect the Phase 2 result to Phases 3-5 in one run, and call the layer 2 guardrail classifier from the pipeline and the app.
+3. Connect the Phase 2 result to Phases 3-5 in one run, and call the layer 2 guardrail classifier from the pipeline too (the app's Ask-the-agents box already uses it).
 4. Let a Phase 2 PIVOT start a new Phase 1 run on the chosen alternative.
 
 **Medium term**
