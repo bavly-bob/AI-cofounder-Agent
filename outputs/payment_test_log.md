@@ -2,7 +2,7 @@ MOCKED — no real payments
 
 # Payment test log (MOCKED sale-to-cash)
 
-- Run: `20261117T185331Z-4f1675` (demo run), generated 2026-11-17T18:53:35Z by `scripts/payment_test.py`
+- Run: `20261117T192845Z-9017e7` (demo run), generated 2026-11-17T19:28:47Z by `scripts/payment_test.py`
 - MOCKED: no payment provider, no sandbox, no SDK, no network, no card data, no money moved.
 - Amounts in USD; fees use a MOCKED schedule (2.9% + 0.30).
 - Refund: approved by the founder at the CLI prompt; MOCKED refund executed; access revoked.
